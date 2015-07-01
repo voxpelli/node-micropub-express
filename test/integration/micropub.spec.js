@@ -45,6 +45,10 @@ describe('Micropub API', function () {
       req = req.expect(code || 201);
     }
 
+    if (!done) {
+      return req;
+    }
+
     req.end(function (err) {
       if (err) { return done(err); }
       if (mock) { mock.done(); }
@@ -61,7 +65,7 @@ describe('Micropub API', function () {
 
     token = 'abc123';
     handlerStub = sinon.stub().resolves({
-      url: 'http://example.com/', //TODO: Set actual resolve URL
+      url: 'http://example.com/new/post',
     });
 
     app = express();
@@ -149,11 +153,35 @@ describe('Micropub API', function () {
 
   describe('create', function () {
 
-    it('should require content', function (done) {
+    it('should fail when not enough data', function (done) {
       var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
       doRequest(mock, done, 400, {
         h: 'entry',
       });
+    });
+
+    it('should call handle on content', function (done) {
+      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+
+      doRequest()
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.callCount.should.equal(1);
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              content: ['hello world'],
+            }
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
     });
 
   });

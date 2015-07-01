@@ -180,7 +180,7 @@ module.exports = function (options) {
   router.post('/', function (req, res, next) {
     var data = processFormencodedBody(req.body);
 
-    if (!data.properties || !data.properties.content) {
+    if (!data.properties || !(data.properties.content || data.properties['like-of'])) {
       return badRequest(res, 'Missing "content" value.');
     }
 

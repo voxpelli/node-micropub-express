@@ -184,6 +184,33 @@ describe('Micropub API', function () {
         });
     });
 
+    it('should call handle on like-of', function (done) {
+      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+
+      doRequest(false, false, 201, {
+        h: 'entry',
+        'like-of': 'http://example.com/liked/post',
+      })
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.callCount.should.equal(1);
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              'like-of': ['http://example.com/liked/post'],
+            }
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
+    });
+
   });
 
 });

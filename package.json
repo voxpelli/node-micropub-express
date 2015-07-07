@@ -4,7 +4,7 @@
   "license": "MIT",
   "description": "Provides a Micropub route for Express 4.x",
   "author": "Pelle Wessman <pelle@kodfabrik.se> (http://kodfabrik.se/)",
-  "homepage": "https://github.com/bloglovin/node-micropub-express",
+  "homepage": "https://github.com/voxpelli/node-micropub-express",
   "repository": {
     "type": "git",
     "url": "git://github.com/voxpelli/node-micropub-express.git"

@@ -19,7 +19,8 @@ module.exports = function (grunt) {
       }
     }
   }, {
-    integrationWatch: true
+    integrationWatch: true,
+    spaceFiles: ['!package.json'],
   });
 
   grunt.event.on('coverage', function (lcov, done) {

@@ -71,7 +71,7 @@ describe('Micropub API', function () {
     app = express();
     app.use('/micropub', micropub({
       handler: handlerStub,
-      token: {
+      tokenReference: {
         me: 'http://kodfabrik.se/',
         endpoint: 'https://tokens.indieauth.com/token',
       },

@@ -73,15 +73,15 @@ module.exports = function (options) {
 
   var logger = options.logger || require('bunyan-duckling');
 
-  if (!options.token || ['function', 'object'].indexOf(typeof options.token) === -1) {
+  if (!options.tokenReference || ['function', 'object'].indexOf(typeof options.tokenReference) === -1) {
     throw new Error('No correct token set. It\'s needed for authorization checks.');
   }
   if (!options.handler || typeof options.handler !== 'function') {
     throw new Error('No correct handler set. It\'s needed to actually process a Micropub request.');
   }
 
-  var tokenLookup = typeof options.token === 'function' ? options.token : function () {
-    return Promise.resolve(options.token);
+  var tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : function () {
+    return Promise.resolve(options.tokenReference);
   };
 
   // Helper functions
@@ -160,7 +160,7 @@ module.exports = function (options) {
     Promise.resolve()
       .then(function () {
         // This way the function doesn't have to return a Promise
-        return tokenLookup(req);
+        return tokenReference(req);
       })
       .then(function (tokenReference) {
         return validateToken(token, tokenReference.me, tokenReference.endpoint);

@@ -28,8 +28,6 @@ The rest of the CRUD-operations + other more complex operations are yet to be bu
 
 ## Usage
 
-Simple:
-
 ```javascript
 var micropub = require('micropub-express');
 
@@ -44,13 +42,16 @@ app.use('/micropub', micropub({
 
   // And lastly: Do something with the created micropub document
   handler: function (micropubDocument, req) {
-    // Do something with the micropubDocument
+    // Do something with the micropubDocument and return a Promise to communicate status of the handling
+    return Promise.resolve().then(function () {
+      return { url: 'http://example.com/url/to/new/post' };
+    });
   }
 
 }));
 ```
 
-Advanced:
+## Advanced Usage
 
 ```javascript
 var express = require('express');
@@ -82,7 +83,10 @@ app.use('/micropub/:targetsite', micropub({
   },
   // And lastly: Do something with the created micropub document
   handler: function (micropubDocument, req) {
-    // Do something with the micropubDocument
+    // Do something with the micropubDocument and return a Promise to communicate status of the handling
+    return Promise.resolve().then(function () {
+      return { url: 'http://example.com/url/to/new/post' };
+    });
   }
 }));
 
@@ -90,3 +94,19 @@ app.use('/micropub/:targetsite', micropub({
 app.listen(3000);
 ```
 
+## Options
+
+* **tokenReference** – *required* – either an object with two keys, `me` and `endpoint`, or a function that receives the request object and returns an object with those two keys. The `me` key signify what identity it is that's expected for a succesful authorization and the `endpoint` key indicates what endpoint the token should be verified with
+* **handler** – *required* – the function that will be called with the handled micropub document and the request object. It's this functions responsibility to actually act on the received data and do something with it. Should return a `Promise` resolving to an object with a `url` key containing the url of the created item to indicate success. If a rejected `Promise` is returned or no `url` key is missing or falsy, then a `400` error will be returned to indicate failure.
+* **userAgent** – *recommended* – a user-agent *string* like `your-app-name/1.2.3 (http://app.example.com/)` that gets prepended to the user-agent of `micropub-express` itself when verifying received tokens against an endpoint
+* **logger** – *optional* – a [bunyan](https://github.com/trentm/node-bunyan) compatible logger, like bunyan itself or some other module. Defaults to [bunyan-duckling](https://github.com/bloglovin/node-bunyan-duckling) which logs with `console.log()` and `console.error()`
+
+## Format of `micropubDocument`
+
+The format closely matches the [JSON-representation](http://indiewebcamp.com/Micropub#JSON_Syntax) of Micropub.
+
+It contains three top level keys:
+
+* **type** – an array containing the type that is that's going to be created
+* **properties** – an object containing all of the microformat properties of the document as arrays containing strings. Eg. `content: ['foobar']`
+* **mp** – an object containing all of the micropub directives as arrays containing string. Eg. `'syndicate-to': ['http://twitter.com/example']` for an `'mp-syndicate-to'` directive.

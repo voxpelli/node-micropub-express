@@ -107,6 +107,20 @@ The format closely matches the [JSON-representation](http://indiewebcamp.com/Mic
 
 It contains three top level keys:
 
-* **type** – an array containing the type that is that's going to be created
+* **type** – an array containing the type that is that's going to be created. Eg. `['h-entry']`
 * **properties** – an object containing all of the microformat properties of the document as arrays containing strings. Eg. `content: ['foobar']`
 * **mp** – an object containing all of the micropub directives as arrays containing string. Eg. `'syndicate-to': ['http://twitter.com/example']` for an `'mp-syndicate-to'` directive.
+
+Full example:
+
+```javascript
+{
+  type: ['h-entry'],
+  properties: {
+    content: ['hello world'],
+  },
+  mp: {
+    'syndicate-to': ['http://twitter.com/example'],
+  }
+}
+```

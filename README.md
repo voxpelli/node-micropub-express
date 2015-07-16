@@ -124,3 +124,8 @@ Full example:
   }
 }
 ```
+
+## Other useful modules
+
+* [format-microformat](https://github.com/voxpelli/node-format-microformat) – a module that takes a `micropubDocument` as its input and then formats filenames, URL:s and file content from that data so one gets some standard data which one then can publish elsewhere – like to a Jekyll blog or something.
+* [github-publish](https://github.com/voxpelli/node-github-publish) – a module that takes a filename and content and publishes that to a GitHub repository. A useful place to send the formatted data that comes out of `format-microformat` if one wants to add it to a GitHub hosted Jekyll blog of some kind, like eg. [GitHub Pages](https://pages.github.com/).

@@ -119,6 +119,7 @@ describe('Micropub API', function () {
       var mock = nock('https://tokens.indieauth.com/')
         .matchHeader('Authorization', function (val) { return val && val[0] === 'Bearer ' + token; })
         .matchHeader('Content-Type', function (val) { return val && val[0] === 'application/x-www-form-urlencoded'; })
+        .matchHeader('User-Agent', function (val) { return val && /^micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val); })
         .get('/token')
         .reply(
           200,
@@ -146,6 +147,31 @@ describe('Micropub API', function () {
 
     it('should handle multiple scopes', function (done) {
       var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+      doRequest(mock, done);
+    });
+
+    it('should use custom user agent', function (done) {
+      app = express();
+      app.use('/micropub', micropub({
+        handler: handlerStub,
+        userAgent: 'foobar/1.0',
+        tokenReference: {
+          me: 'http://kodfabrik.se/',
+          endpoint: 'https://tokens.indieauth.com/token',
+        },
+      }));
+
+      agent = request.agent(app);
+
+      var mock = nock('https://tokens.indieauth.com/')
+        .matchHeader('User-Agent', function (val) { return val && /^foobar\/1\.0 micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val); })
+        .get('/token')
+        .reply(
+          200,
+          'me=http%3A%2F%2Fkodfabrik.se%2F&issued_by=https%3A%2F%2Ftokens.indieauth.com%2Ftoken&client_id=http%3A%2F%2F127.0.0.1%3A8080%2F&issued_at=1435611612&scope=post&nonce=501574078',
+          { 'Content-Type': 'application/x-www-form-urlencoded' }
+        );
+
       doRequest(mock, done);
     });
 

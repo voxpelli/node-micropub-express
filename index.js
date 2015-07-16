@@ -9,6 +9,9 @@ var bodyParser = require('body-parser');
 
 var fetch = require('node-fetch');
 
+var pkg = require('./package.json');
+var defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
+
 var badRequest = function (res, reason, code) {
   res.status(code || 400).set('Content-Type', 'text/plain').send(reason);
 };
@@ -80,6 +83,8 @@ module.exports = function (options) {
     throw new Error('No correct handler set. It\'s needed to actually process a Micropub request.');
   }
 
+  var userAgent = ((options.userAgent || '') + ' ' + defaultUserAgent).trim();
+
   var tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : function () {
     return Promise.resolve(options.tokenReference);
   };
@@ -95,7 +100,7 @@ module.exports = function (options) {
         headers: {
           'Authorization': 'Bearer ' + token,
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': options.userAgent,
+          'User-Agent': userAgent,
         },
       };
 

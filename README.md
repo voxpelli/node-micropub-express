@@ -31,10 +31,7 @@ The rest of the CRUD-operations + other more complex operations are yet to be bu
 Simple:
 
 ```javascript
-var express = require('express');
 var micropub = require('micropub-express');
-
-var app = express();
 
 // Attach the micropub endpoint to "/micropub" or wherever else you want
 app.use('/micropub', micropub({
@@ -51,9 +48,6 @@ app.use('/micropub', micropub({
   }
 
 }));
-
-// Start the Express server on a port, like port 3000!
-app.listen(3000);
 ```
 
 Advanced:

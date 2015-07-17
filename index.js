@@ -6,6 +6,7 @@ var qs = require('querystring');
 
 var express = require('express');
 var bodyParser = require('body-parser');
+var multer = require('multer');
 
 var fetch = require('node-fetch');
 
@@ -143,6 +144,7 @@ module.exports = function (options) {
 
   router.use(bodyParser.urlencoded({ extended: false }));
   router.use(bodyParser.json());
+  router.use(multer({ inMemory: true }));
 
   // Ensure the needed parts are there
   router.use(function (req, res, next) {

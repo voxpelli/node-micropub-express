@@ -110,6 +110,7 @@ It contains three top level keys:
 * **type** – an array containing the type that is that's going to be created. Eg. `['h-entry']`
 * **properties** – an object containing all of the microformat properties of the document as arrays containing strings. Eg. `content: ['foobar']`
 * **mp** – an object containing all of the micropub directives as arrays containing string. Eg. `'syndicate-to': ['http://twitter.com/example']` for an `'mp-syndicate-to'` directive.
+* **files** – an object that can contain three keys, `audio`, `video`, `photo`, which in turn contains arrays of objects with a `filename` and a `buffer` key with the name and content of the files.
 
 Full example:
 
@@ -121,6 +122,14 @@ Full example:
   },
   mp: {
     'syndicate-to': ['http://twitter.com/example'],
+  },
+  files: {
+    photo: [
+      {
+        filename: 'example.jpg',
+        buffer: new Buffer() // A Node.js buffer with the content of the file.
+      }
+    ]
   }
 }
 ```

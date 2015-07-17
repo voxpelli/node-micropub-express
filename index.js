@@ -79,6 +79,36 @@ var processFormencodedBody = function (body) {
   return result;
 };
 
+var processFiles = function (body, files, logger) {
+  var allResults = {};
+
+  ['video', 'photo', 'audio'].forEach(function (type) {
+    var result = [];
+
+    ([].concat(files[type] || [], files[type + '[]'] || [])).forEach(function (file) {
+      if (file.truncated) {
+        logger.warn('File was truncated');
+        return;
+      }
+
+      result.push({
+        filename: file.originalname,
+        buffer: file.buffer,
+      });
+    });
+
+    if (result.length) {
+      allResults[type] = result;
+    }
+  });
+
+  if (Object.getOwnPropertyNames(allResults)[0] !== undefined) {
+    body.files = allResults;
+  }
+
+  return body;
+};
+
 module.exports = function (options) {
   options = options || {};
 
@@ -144,12 +174,19 @@ module.exports = function (options) {
 
   router.use(bodyParser.urlencoded({ extended: false }));
   router.use(bodyParser.json());
-  router.use(multer({ inMemory: true }));
+  router.use(multer({
+    inMemory: true,
+    putSingleFilesInArray: true,
+  }));
 
   // Ensure the needed parts are there
   router.use(function (req, res, next) {
     if (req.headers['content-type'] !== 'application/json') {
       req.body = processFormencodedBody(req.body);
+    }
+
+    if (req.files && Object.getOwnPropertyNames(req.files)[0]) {
+      req.body = processFiles(req.body, req.files, logger);
     }
 
     var isUpdate = !!req.body['edit-of'];

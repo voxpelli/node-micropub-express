@@ -30,10 +30,17 @@ describe('Micropub API', function () {
   };
 
   var doRequest = function (mock, done, code, content, response) {
+    var type = 'form';
+
+    if (content && content.json) {
+      delete content.json;
+      type = 'json';
+    }
+
     var req = agent
       .post('/micropub')
       .set('Authorization', 'Bearer ' + token)
-      .type('form')
+      .type(type)
       .send(content || {
         h: 'entry',
         content: 'hello world',
@@ -229,6 +236,36 @@ describe('Micropub API', function () {
             type: ['h-entry'],
             properties: {
               'like-of': ['http://example.com/liked/post'],
+            }
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
+    });
+
+    it('should call handle on JSON payload', function (done) {
+      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+
+      doRequest(undefined, undefined, undefined, {
+        json: true,
+        type: ['h-entry'],
+        properties: {
+          content: ['hello world'],
+        },
+      })
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.callCount.should.equal(1);
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              content: ['hello world'],
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');

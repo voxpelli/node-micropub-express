@@ -36,17 +36,24 @@ var reservedProperties = Object.freeze([
 
 var processFormencodedBody = function (body) {
   var result = {
-    type: ['h-' + body.h],
+    type: body.h ? ['h-' + body.h] : undefined,
     properties: {},
     mp: {},
   };
 
+  if (body.h) {
+    result.type = ['h-' + body.h];
+    delete body.h;
+  }
+
   var key, value, targetProperty;
 
   for (key in body) {
-    if (reservedProperties.indexOf(key) === -1) {
-      value = body[key];
+    value = body[key];
 
+    if (reservedProperties.indexOf(key) !== -1) {
+      result[key] = value;
+    } else {
       if (key.substr(-2) === '[]') {
         key = key.slice(0, -2);
       }
@@ -135,9 +142,14 @@ module.exports = function (options) {
   });
 
   router.use(bodyParser.urlencoded({ extended: false }));
+  router.use(bodyParser.json());
 
   // Ensure the needed parts are there
   router.use(function (req, res, next) {
+    if (req.headers['content-type'] !== 'application/json') {
+      req.body = processFormencodedBody(req.body);
+    }
+
     var isUpdate = !!req.body['edit-of'];
     var isDeletion = !!req.body['delete-of'];
 
@@ -149,7 +161,7 @@ module.exports = function (options) {
       return badRequest(res, 'This endpoint does not yet support updates.', 501);
     } else if (isDeletion) {
       return badRequest(res, 'This endpoint does not yet support deletions.', 501);
-    } else if (!req.body.h) {
+    } else if (!req.body.type) {
       return badRequest(res, 'Missing "h" value.');
     }
 
@@ -183,7 +195,7 @@ module.exports = function (options) {
   });
 
   router.post('/', function (req, res, next) {
-    var data = processFormencodedBody(req.body);
+    var data = req.body;
 
     if (!data.properties || !(data.properties.content || data.properties['like-of'])) {
       return badRequest(res, 'Missing "content" value.');

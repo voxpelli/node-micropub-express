@@ -1,3 +1,14 @@
+## 0.3.0 (2015-07-17)
+
+
+#### Features
+
+* **main:**
+  * consume and expose uploaded files ([310a379a](https://github.com/voxpelli/node-micropub-express/commit/310a379a0a2bc491b55f7e307ba6c8b8ba21c910))
+  * should handle multipart payloads ([8a839f6b](https://github.com/voxpelli/node-micropub-express/commit/8a839f6b23f829a3913fec08e5220fd859ff8648))
+  * should handle JSON payloads ([0be2b8ea](https://github.com/voxpelli/node-micropub-express/commit/0be2b8eab769c44e75c2465b6005c6407d775b60))
+
+
 ## 0.2.0 (2015-07-16)
 
 

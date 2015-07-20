@@ -181,6 +181,8 @@ module.exports = function (options) {
 
   // Ensure the needed parts are there
   router.use(function (req, res, next) {
+    logger.debug({ body: req.body }, 'Received a request');
+
     if (req.headers['content-type'] !== 'application/json') {
       req.body = processFormencodedBody(req.body);
     }
@@ -189,10 +191,7 @@ module.exports = function (options) {
       req.body = processFiles(req.body, req.files, logger);
     }
 
-    logger.debug({
-      body: req.body,
-      files: req.files,
-    }, 'Received a request');
+    logger.debug({ body: req.body }, 'Processed a request');
 
     var isUpdate = !!req.body['edit-of'];
     var isDeletion = !!req.body['delete-of'];

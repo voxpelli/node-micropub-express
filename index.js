@@ -189,6 +189,11 @@ module.exports = function (options) {
       req.body = processFiles(req.body, req.files, logger);
     }
 
+    logger.debug({
+      body: req.body,
+      files: req.files,
+    }, 'Received a request');
+
     var isUpdate = !!req.body['edit-of'];
     var isDeletion = !!req.body['delete-of'];
 

@@ -193,28 +193,18 @@ module.exports = function (options) {
 
     logger.debug({ body: req.body }, 'Processed a request');
 
-    var isUpdate = !!req.body['edit-of'];
-    var isDeletion = !!req.body['delete-of'];
-
     //TODO: The body sniffing belongs in the actual route, not in the middleware – right?
-
-    if (!req.headers.authorization && !req.body.access_token) {
-      return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
-    } else if (isUpdate) {
-      return badRequest(res, 'This endpoint does not yet support updates.', 501);
-    } else if (isDeletion) {
-      return badRequest(res, 'This endpoint does not yet support deletions.', 501);
-    } else if (!req.body.type) {
-      return badRequest(res, 'Missing "h" value.');
-    }
 
     var token;
 
     if (req.headers.authorization) {
       token = req.headers.authorization.trim().split(/\s+/)[1];
-    }
-    if (!token && req.body.access_token) {
+    } else if (!token && req.body.access_token) {
       token = req.body.access_token;
+    }
+
+    if (!token) {
+      return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
     }
 
     Promise.resolve()
@@ -238,6 +228,17 @@ module.exports = function (options) {
   });
 
   router.post('/', function (req, res, next) {
+    var isUpdate = !!req.body['edit-of'];
+    var isDeletion = !!req.body['delete-of'];
+
+    if (isUpdate) {
+      return badRequest(res, 'This endpoint does not yet support updates.', 501);
+    } else if (isDeletion) {
+      return badRequest(res, 'This endpoint does not yet support deletions.', 501);
+    } else if (!req.body.type) {
+      return badRequest(res, 'Missing "h" value.');
+    }
+
     var data = req.body;
 
     if (!data.properties || !(data.properties.content || data.properties['like-of'])) {

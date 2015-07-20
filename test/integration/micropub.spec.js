@@ -102,21 +102,6 @@ describe('Micropub API', function () {
         .expect(401, 'Missing "Authorization" header or body parameter.', done);
     });
 
-    it('should require h-field', function (done) {
-      agent
-        .post('/micropub')
-        .set('Authorization', 'Bearer abc123')
-        .expect(400, 'Missing "h" value.', done);
-    });
-
-    it('should refuse update requests', function (done) {
-      doRequest(false, done, 501, { 'edit-of': 'http://example.com/foo' }, 'This endpoint does not yet support updates.');
-    });
-
-    it('should refuse delete requests', function (done) {
-      doRequest(false, done, 501, { 'delete-of': 'http://example.com/foo' }, 'This endpoint does not yet support deletions.');
-    });
-
   });
 
   describe('auth', function () {
@@ -185,16 +170,37 @@ describe('Micropub API', function () {
 
   describe('create', function () {
 
+    var mock;
+
+    beforeEach(function () {
+      mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+    });
+
+    it('should require h-field', function (done) {
+      agent
+        .post('/micropub')
+        .set('Authorization', 'Bearer abc123')
+        .expect(400, 'Missing "h" value.', function () {
+          mock.done();
+          done();
+        });
+    });
+
+    it('should refuse update requests', function (done) {
+      doRequest(mock, done, 501, { 'edit-of': 'http://example.com/foo' }, 'This endpoint does not yet support updates.');
+    });
+
+    it('should refuse delete requests', function (done) {
+      doRequest(mock, done, 501, { 'delete-of': 'http://example.com/foo' }, 'This endpoint does not yet support deletions.');
+    });
+
     it('should fail when not enough data', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
       doRequest(mock, done, 400, {
         h: 'entry',
       });
     });
 
     it('should call handle on content', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
-
       doRequest()
         .expect('Location', 'http://example.com/new/post')
         .end(function (err) {
@@ -217,8 +223,6 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on like-of', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
-
       doRequest(false, false, 201, {
         h: 'entry',
         'like-of': 'http://example.com/liked/post',
@@ -244,8 +248,6 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on JSON payload', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
-
       doRequest(undefined, undefined, undefined, function (req) {
         return req.type('json').send({
           type: ['h-entry'],
@@ -275,8 +277,6 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on multipart payload', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
-
       doRequest(undefined, undefined, undefined, function (req) {
         return req
           .field('h', 'entry')

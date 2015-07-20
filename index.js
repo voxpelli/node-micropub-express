@@ -227,6 +227,11 @@ module.exports = function (options) {
       });
   });
 
+  router.get('/verify', function (req, res) {
+    // If we've gotten this far then token gives proper access and that's all that this route care about
+    return res.sendStatus(200);
+  });
+
   router.post('/', function (req, res, next) {
     var isUpdate = !!req.body['edit-of'];
     var isDeletion = !!req.body['delete-of'];

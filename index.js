@@ -174,10 +174,13 @@ module.exports = function (options) {
 
   router.use(bodyParser.urlencoded({ extended: false }));
   router.use(bodyParser.json());
-  router.use(multer({
-    inMemory: true,
-    putSingleFilesInArray: true,
-  }));
+
+  var storage = multer.memoryStorage();
+  var upload = multer({ storage: storage });
+
+  router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(function (type) {
+    return { name: type };
+  })));
 
   // Ensure the needed parts are there
   router.use(function (req, res, next) {

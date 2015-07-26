@@ -194,7 +194,7 @@ describe('Micropub API', function () {
       doRequest(mock, done, 501, { 'delete-of': 'http://example.com/foo' }, 'This endpoint does not yet support deletions.');
     });
 
-    it('should fail when not enough data', function (done) {
+    it('should fail when no properties', function (done) {
       doRequest(mock, done, 400, {
         h: 'entry',
       });
@@ -239,6 +239,31 @@ describe('Micropub API', function () {
             type: ['h-entry'],
             properties: {
               'like-of': ['http://example.com/liked/post'],
+            }
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
+    });
+
+    it('should handle totally random properties', function (done) {
+      doRequest(false, false, 201, {
+        h: 'entry',
+        foo: '123',
+      })
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.callCount.should.equal(1);
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              'foo': ['123'],
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');

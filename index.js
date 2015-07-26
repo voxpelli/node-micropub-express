@@ -153,11 +153,13 @@ module.exports = function (options) {
         }
 
         if (normalizeUrl(result.me) !== normalizeUrl(me)) {
+          logger.debug('Token "me" didn\'t match expected: ' + me + ', Got: ' + result.me);
           return false;
         }
 
         var scopes = result.scope.split(',');
         if (scopes.indexOf('post') === -1) {
+          logger.debug('Missing "post scope, instead got: ' + result.scope);
           return false;
         }
 
@@ -207,6 +209,7 @@ module.exports = function (options) {
     }
 
     if (!token) {
+      logger.debug('Got a request with a missing token');
       return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
     }
 
@@ -249,8 +252,8 @@ module.exports = function (options) {
 
     var data = req.body;
 
-    if (!data.properties || !(data.properties.content || data.properties['like-of'])) {
-      return badRequest(res, 'Missing "content" value.');
+    if (!data.properties) {
+      return badRequest(res, 'Not finding any properties.');
     }
 
     Promise.resolve()

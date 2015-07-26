@@ -1,3 +1,22 @@
+### 0.3.1 (2015-07-26)
+
+
+#### Bug Fixes
+
+* **dependencies:** updated to new multer ([2d8eee08](https://github.com/voxpelli/node-micropub-express/commit/2d8eee08473ecb784510c9f4ddc49ce1605f371b))
+* **main:**
+  * move verification endpoint to top ([5ec0f65c](https://github.com/voxpelli/node-micropub-express/commit/5ec0f65cf479d668977997ea559639026e89b1ff))
+  * do not enforce specific properties ([a2c72d5f](https://github.com/voxpelli/node-micropub-express/commit/a2c72d5f97c98ddb1925ca3c51ee91c134178807), closes [#1](https://github.com/voxpelli/node-micropub-express/issues/1))
+  * move input validation to create route ([b2de551c](https://github.com/voxpelli/node-micropub-express/commit/b2de551c9d96297ae2a92d1d8b174150b2877d9d))
+  * more debugging calls ([f2c11123](https://github.com/voxpelli/node-micropub-express/commit/f2c11123a8f72ab5458e3b7921896947728c434a))
+  * added some debugging calls ([486ac189](https://github.com/voxpelli/node-micropub-express/commit/486ac189673c0b8f366be32313bf4ad621d2cef5))
+
+
+#### Features
+
+* **main:** add a /verify endpoint ([fb7044cb](https://github.com/voxpelli/node-micropub-express/commit/fb7044cb75bd681530fa0214949d0689cdbabe65))
+
+
 ## 0.3.0 (2015-07-17)
 
 

@@ -198,8 +198,6 @@ module.exports = function (options) {
 
     logger.debug({ body: req.body }, 'Processed a request');
 
-    //TODO: The body sniffing belongs in the actual route, not in the middleware – right?
-
     var token;
 
     if (req.headers.authorization) {

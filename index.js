@@ -233,7 +233,7 @@ module.exports = function (options) {
       });
   });
 
-  router.get('/verify', function (req, res) {
+  router.get('/', function (req, res) {
     // If we've gotten this far then token gives proper access and that's all that this route care about
     return res.sendStatus(200);
   });

@@ -121,6 +121,10 @@ module.exports = function (options) {
     throw new Error('No correct handler set. It\'s needed to actually process a Micropub request.');
   }
 
+  if (!options.syndication || options.syndication.constructor !== Array) {
+    options.syndication = [];
+  }
+
   var userAgent = ((options.userAgent || '') + ' ' + defaultUserAgent).trim();
 
   var tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : function () {
@@ -233,7 +237,29 @@ module.exports = function (options) {
 
   router.get('/', function (req, res) {
     // If we've gotten this far then token gives proper access and that's all that this route care about
-    return res.sendStatus(200);
+    var isSyndicationRequest = (req.query.q === 'syndicate-to');
+    logger.debug({'query': req.query}, 'Received a query');
+
+    if (isSyndicationRequest) {
+      res.type('application/x-www-form-urlencoded');
+      var data = '';
+      for (var i = options.syndication.length - 1; i >= 0; i--) {
+        var syndicateTo = options.syndication[i];
+        data += 'syndicate-to[]=' + syndicateTo + '&';
+      }
+      res.format({
+        'application/x-www-form-urlencoded': function () {
+          return res.send(encodeURI(data));
+        },
+
+        'default': function () {
+          // If not requesting form urlencoded then return error
+          return badRequest(res, 'Requires application/x-www-form-urlencoded data', 406);
+        }
+      });
+    } else {
+      return res.sendStatus(200);
+    }
   });
 
   router.post('/', function (req, res, next) {

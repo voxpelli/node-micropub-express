@@ -4,22 +4,10 @@
 var lintlovin = require('lintlovin');
 
 module.exports = function (grunt) {
-  lintlovin.initConfig(grunt, {
-    mocha_istanbul : {
-      options: {
-        ui: 'tdd',
-        coverage: true,
-        reportFormats: ['lcov']
-      },
-      basic: {
-        src: process.env.TRAVIS ? ['test/**/*.js'] : ['test/**/*.js', '!test/integration/**/*.js']
-      },
-      integration: {
-        src: ['test/integration/**/*.js']
-      }
-    }
-  }, {
+  lintlovin.initConfig(grunt, {}, {
+    enableCoverageEvent: true,
     integrationWatch: true,
+    integrationTravis: true,
   });
 
   grunt.event.on('coverage', function (lcov, done) {

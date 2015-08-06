@@ -1,4 +1,4 @@
-/* jshint node: true */
+/* jshint node: true, expr: true */
 /* global beforeEach, afterEach, describe, it */
 
 'use strict';
@@ -8,9 +8,12 @@ var chaiAsPromised = require('chai-as-promised');
 var nock = require('nock');
 var request = require('supertest');
 var sinon = require('sinon');
+var sinonChai = require('sinon-chai');
+
 require('sinon-as-promised');
 
 chai.use(chaiAsPromised);
+chai.use(sinonChai);
 chai.should();
 
 describe('Micropub API', function () {
@@ -208,7 +211,7 @@ describe('Micropub API', function () {
 
           mock.done();
 
-          handlerStub.callCount.should.equal(1);
+          handlerStub.should.have.been.calledOnce;
           handlerStub.firstCall.args.should.have.length(2);
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
@@ -313,7 +316,7 @@ describe('Micropub API', function () {
 
           mock.done();
 
-          handlerStub.callCount.should.equal(1);
+          handlerStub.should.have.been.calledOnce;
           handlerStub.firstCall.args.should.have.length(2);
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],

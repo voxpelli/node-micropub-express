@@ -190,11 +190,7 @@ describe('Micropub API', function () {
     });
 
     it('should refuse update requests', function (done) {
-      doRequest(mock, done, 501, { 'edit-of': 'http://example.com/foo' }, 'This endpoint does not yet support updates.');
-    });
-
-    it('should refuse delete requests', function (done) {
-      doRequest(mock, done, 501, { 'delete-of': 'http://example.com/foo' }, 'This endpoint does not yet support deletions.');
+      doRequest(mock, done, 501, { 'mp-action': 'edit' }, 'This endpoint does not yet support updates.');
     });
 
     it('should fail when no properties', function (done) {
@@ -329,6 +325,69 @@ describe('Micropub API', function () {
           done();
         });
     });
+
+    it('should transform mp-* properties', function (done) {
+      doRequest(false, false, 201, {
+        h: 'entry',
+        'mp-foo': 'bar',
+        'like-of': 'http://example.com/liked/post',
+      })
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.callCount.should.equal(1);
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              'like-of': ['http://example.com/liked/post'],
+            },
+            mp: {
+              foo: ['bar'],
+            },
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
+    });
+
+    it('should transform mp-* properties in JSON payload', function (done) {
+      doRequest(undefined, undefined, undefined, function (req) {
+        return req.type('json').send({
+          type: ['h-entry'],
+          'mp-foo': 'bar',
+          properties: {
+            content: ['hello world'],
+          },
+        });
+      })
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.callCount.should.equal(1);
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              content: ['hello world'],
+            },
+            mp: {
+              foo: ['bar'],
+            },
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
+    });
+
 
   });
 

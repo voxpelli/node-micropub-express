@@ -26,14 +26,20 @@ var normalizeUrl = function (url) {
 
 var reservedProperties = Object.freeze([
   'access_token',
-  'h',
   'q',
-  'edit-of',
-  'delete-of',
+  'url',
   'update',
   'add',
   'delete',
 ]);
+
+var cleanEmptyKeys = function (result) {
+  for (var key in result) {
+    if (typeof result[key] === 'object' && Object.getOwnPropertyNames(result[key])[0] === undefined) {
+      delete result[key];
+    }
+  }
+};
 
 var processFormencodedBody = function (body) {
   var result = {
@@ -70,11 +76,30 @@ var processFormencodedBody = function (body) {
     }
   }
 
-  for (key in result) {
-    if (typeof result[key] === 'object' && Object.getOwnPropertyNames(result[key])[0] === undefined) {
-      delete result[key];
+  cleanEmptyKeys(result);
+
+  return result;
+};
+
+var processJSONencodedBody = function (body) {
+  var key, value;
+
+  var result = {
+    mp: {},
+  };
+
+  for (key in body) {
+    value = body[key];
+
+    if (reservedProperties.indexOf(key) !== -1 || ['properties', 'type'].indexOf(key) !== -1) {
+      result[key] = value;
+    } else if (key.indexOf('mp-') === 0) {
+      key = key.substr(3);
+      result.mp[key] = [].concat(value);
     }
   }
+
+  cleanEmptyKeys(result);
 
   return result;
 };
@@ -188,7 +213,9 @@ module.exports = function (options) {
   router.use(function (req, res, next) {
     logger.debug({ body: req.body }, 'Received a request');
 
-    if (req.headers['content-type'] !== 'application/json') {
+    if (req.headers['content-type'] === 'application/json') {
+      req.body = processJSONencodedBody(req.body);
+    } else {
       req.body = processFormencodedBody(req.body);
     }
 
@@ -237,13 +264,8 @@ module.exports = function (options) {
   });
 
   router.post('/', function (req, res, next) {
-    var isUpdate = !!req.body['edit-of'];
-    var isDeletion = !!req.body['delete-of'];
-
-    if (isUpdate) {
+    if (req.body.mp && req.body.mp.action) {
       return badRequest(res, 'This endpoint does not yet support updates.', 501);
-    } else if (isDeletion) {
-      return badRequest(res, 'This endpoint does not yet support deletions.', 501);
     } else if (!req.body.type) {
       return badRequest(res, 'Missing "h" value.');
     }
@@ -275,3 +297,4 @@ module.exports = function (options) {
 };
 
 module.exports.processFormencodedBody = processFormencodedBody;
+module.exports.processJSONencodedBody = processJSONencodedBody;

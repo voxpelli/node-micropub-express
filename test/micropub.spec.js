@@ -67,6 +67,22 @@ describe('Micropub Parse', function () {
       });
     });
 
+    it('should convert URL-property to top-level property', function () {
+      micropub.processJSONencodedBody({
+        type: ['h-entry'],
+        properties: {
+          content: ['hello world'],
+          url: ['http://example.com/'],
+        },
+      }).should.deep.equal({
+        type: ['h-entry'],
+        url: 'http://example.com/',
+        properties: {
+          content: ['hello world'],
+        },
+      });
+    });
+
   });
 
 });

@@ -85,6 +85,7 @@ var processJSONencodedBody = function (body) {
   var key, value;
 
   var result = {
+    properties: {},
     mp: {},
   };
 
@@ -96,6 +97,14 @@ var processJSONencodedBody = function (body) {
     } else if (key.indexOf('mp-') === 0) {
       key = key.substr(3);
       result.mp[key] = [].concat(value);
+    }
+  }
+
+
+  for (key in body.properties) {
+    if (['url'].indexOf(key) !== -1) {
+      result[key] = result[key] || [].concat(body.properties[key])[0];
+      delete body.properties[key];
     }
   }
 

@@ -1,3 +1,13 @@
+### 0.3.2 (2015-08-07)
+
+
+#### Bug Fixes
+
+* **main:**
+  * ensure URL is always top level property ([b41c4045](https://github.com/voxpelli/node-micropub-express/commit/b41c4045387d9caf5429d3c86b858125f54f3b32))
+  * process JSON-content + use mp-action ([1ec70b9f](https://github.com/voxpelli/node-micropub-express/commit/1ec70b9fb357ec515b50d0da84d5e4aaf1cd6ff7))
+
+
 ### 0.3.1 (2015-07-26)
 
 

@@ -1,3 +1,11 @@
+### 0.3.3 (2015-08-28)
+
+
+#### Features
+
+* **main:** support checking multiple references ([c78b12d1](https://github.com/voxpelli/node-micropub-express/commit/c78b12d1db5b881f522e14df432a50229029f512))
+
+
 ### 0.3.2 (2015-08-07)
 
 

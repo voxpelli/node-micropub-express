@@ -144,6 +144,25 @@ describe('Micropub API', function () {
       doRequest(mock, done);
     });
 
+    it('should handle multiple token references', function (done) {
+      app = express();
+      app.use('/micropub', micropub({
+        handler: handlerStub,
+        tokenReference: function () {
+          return [
+            { endpoint: 'https://tokens.indieauth.com/token', me: 'http://kodfabrik.se/' },
+            { endpoint: 'https://tokens.indieauth.com/token', me: 'http://example.com/' },
+          ];
+        },
+      }));
+
+      agent = request.agent(app);
+
+      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fexample.com%2F&scope=post,misc');
+
+      doRequest(mock, done);
+    });
+
     it('should use custom user agent', function (done) {
       app = express();
       app.use('/micropub', micropub({

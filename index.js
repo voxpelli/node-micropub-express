@@ -163,7 +163,28 @@ module.exports = function (options) {
 
   // Helper functions
 
-  var validateToken = function (token, me, endpoint) {
+  var matchAnyTokenReference = function (token, references) {
+    if (!references || !references.length) {
+      return Promise.resolve(false);
+    }
+
+    var endpoints = {};
+
+    references.forEach(function (reference) {
+      endpoints[reference.endpoint] = endpoints[reference.endpoint] || [];
+      endpoints[reference.endpoint].push(reference.me);
+    });
+
+    return Promise.all(Object.keys(endpoints).map(function (endpoint) {
+      return validateToken(token, endpoints[endpoint], endpoint);
+    })).then(function (result) {
+      return result.some(function (valid) {
+        return valid;
+      });
+    });
+  };
+
+  var validateToken = function (token, meReferences, endpoint) {
     if (!token) {
       return Promise.resolve(false);
     }
@@ -186,8 +207,10 @@ module.exports = function (options) {
           return false;
         }
 
-        if (normalizeUrl(result.me) !== normalizeUrl(me)) {
-          logger.debug('Token "me" didn\'t match expected: ' + me + ', Got: ' + result.me);
+        meReferences = meReferences.map(normalizeUrl);
+
+        if (meReferences.indexOf(normalizeUrl(result.me)) === -1) {
+          logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"');
           return false;
         }
 
@@ -253,7 +276,7 @@ module.exports = function (options) {
         return tokenReference(req);
       })
       .then(function (tokenReference) {
-        return validateToken(token, tokenReference.me, tokenReference.endpoint);
+        return matchAnyTokenReference(token, [].concat(tokenReference));
       })
       .then(function (valid) {
         if (!valid) {

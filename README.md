@@ -39,6 +39,9 @@ app.use('/micropub', micropub({
     me: 'http://example.com/',
     endpoint: 'https://tokens.indieauth.com/token',
   },
+  
+  // Specify available syndication handlers
+  syndication: ['https://twitter.com/example', 'https://facebook.com/example'],
 
   // And lastly: Do something with the created micropub document
   handler: function (micropubDocument, req) {

@@ -1,3 +1,11 @@
+### 0.3.4 (2015-09-07)
+
+
+#### Bug Fixes
+
+* **main:** support parsing content[html] forms ([2f81e0ac](https://github.com/voxpelli/node-micropub-express/commit/2f81e0ac1e210d7373c9bf93c6c37390a91bb927))
+
+
 ### 0.3.3 (2015-08-28)
 
 

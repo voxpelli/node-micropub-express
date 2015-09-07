@@ -45,6 +45,18 @@ describe('Micropub Parse', function () {
       });
     });
 
+    it('should handle object properties', function () {
+      micropub.processFormencodedBody({
+        h: 'entry',
+        'content[html]': 'hello world',
+      }).should.deep.equal({
+        type: ['h-entry'],
+        properties: {
+          content: [{'html': 'hello world'}],
+        }
+      });
+    });
+
   });
 
   describe('JSON-encoded Body', function () {

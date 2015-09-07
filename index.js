@@ -13,6 +13,8 @@ var fetch = require('node-fetch');
 var pkg = require('./package.json');
 var defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
+var formEncodedKey = /\[([^\]]*)\]$/;
+
 var badRequest = function (res, reason, code) {
   res.status(code || 400).set('Content-Type', 'text/plain').send(reason);
 };
@@ -53,7 +55,7 @@ var processFormencodedBody = function (body) {
     delete body.h;
   }
 
-  var key, value, targetProperty;
+  var key, subKey, value, targetProperty, tmp;
 
   for (key in body) {
     value = body[key];
@@ -61,8 +63,15 @@ var processFormencodedBody = function (body) {
     if (reservedProperties.indexOf(key) !== -1) {
       result[key] = value;
     } else {
-      if (key.substr(-2) === '[]') {
-        key = key.slice(0, -2);
+      while ((subKey = formEncodedKey.exec(key))) {
+        if (subKey[1]) {
+          tmp = {};
+          tmp[subKey[1]] = value;
+          value = tmp;
+        } else {
+          value = [].concat(value);
+        }
+        key = key.slice(0, subKey.index);
       }
 
       if (key.indexOf('mp-') === 0) {

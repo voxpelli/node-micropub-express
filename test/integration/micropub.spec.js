@@ -290,6 +290,33 @@ describe('Micropub API', function () {
         });
     });
 
+    it('should call handle on HTML content', function (done) {
+      doRequest(false, false, 201, {
+        h: 'entry',
+        'content[html]': '<strong>Hi</strong>',
+      })
+        .expect('Location', 'http://example.com/new/post')
+        .end(function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          handlerStub.should.have.been.calledOnce;
+          handlerStub.firstCall.args.should.have.length(2);
+          handlerStub.firstCall.args[0].should.deep.equal({
+            type: ['h-entry'],
+            properties: {
+              content: [{
+                html: '<strong>Hi</strong>',
+              }],
+            }
+          });
+          handlerStub.firstCall.args[1].should.be.an('object');
+
+          done();
+        });
+    });
+
     it('should call handle on JSON payload', function (done) {
       doRequest(undefined, undefined, undefined, function (req) {
         return req.type('json').send({

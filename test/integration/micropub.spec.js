@@ -17,6 +17,7 @@ chai.use(sinonChai);
 chai.should();
 
 describe('Micropub API', function () {
+  var customLogger = require('bunyan-adaptor')({ verbose: function () {} });
   var express = require('express');
   var micropub = require('../../');
 
@@ -79,6 +80,7 @@ describe('Micropub API', function () {
 
     app = express();
     app.use('/micropub', micropub({
+      logger: customLogger,
       handler: handlerStub,
       tokenReference: {
         me: 'http://kodfabrik.se/',
@@ -147,6 +149,7 @@ describe('Micropub API', function () {
     it('should handle multiple token references', function (done) {
       app = express();
       app.use('/micropub', micropub({
+        logger: customLogger,
         handler: handlerStub,
         tokenReference: function () {
           return [
@@ -166,6 +169,7 @@ describe('Micropub API', function () {
     it('should use custom user agent', function (done) {
       app = express();
       app.use('/micropub', micropub({
+        logger: customLogger,
         handler: handlerStub,
         userAgent: 'foobar/1.0',
         tokenReference: {

@@ -1,3 +1,11 @@
+## 0.4.0 (2015-11-18)
+
+
+#### Features
+
+* **main:** added queryHandler option ([d04c4c3c](https://github.com/voxpelli/node-micropub-express/commit/d04c4c3c3ed4b0860eb3e88da78ad9ce97e31ede), closes [#2](https://github.com/voxpelli/node-micropub-express/issues/2))
+
+
 ### 0.3.4 (2015-09-07)
 
 

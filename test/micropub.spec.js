@@ -3,6 +3,7 @@
 
 'use strict';
 
+var qs = require('querystring');
 var chai = require('chai');
 var chaiAsPromised = require('chai-as-promised');
 
@@ -92,6 +93,43 @@ describe('Micropub Parse', function () {
         properties: {
           content: ['hello world'],
         },
+      });
+    });
+
+  });
+
+  describe('Formencoded Response', function () {
+
+    it('should be correctly formatted', function () {
+      var result = micropub.queryStringEncodeWithArrayBrackets({
+        'syndicate-to': [
+          'foo',
+          'bar',
+        ],
+      });
+
+      qs.parse(result).should.deep.equal({
+        'syndicate-to[]': [
+          'foo',
+          'bar',
+        ],
+      });
+    });
+
+    it('should format complex variants', function () {
+      var result = micropub.queryStringEncodeWithArrayBrackets({
+        foo: 123,
+        bar: [
+          'foo',
+          { abc: 'xyc' },
+          { abc: '789' },
+        ],
+      });
+
+      qs.parse(result).should.deep.equal({
+        foo: '123',
+        'bar[]': 'foo',
+        'bar[][abc]': ['xyc', '789'],
       });
     });
 

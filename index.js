@@ -15,6 +15,24 @@ var defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg
 
 var formEncodedKey = /\[([^\]]*)\]$/;
 
+var queryStringEncodeWithArrayBrackets = function (data, key) {
+  var result = '';
+
+  if (Array.isArray(data)) {
+    return data.map(function (item) {
+      return queryStringEncodeWithArrayBrackets(item, key + '[]');
+    }).join('&');
+  } else if (typeof data === 'object') {
+    return Object.keys(data).map(function (dataKey) {
+      return queryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey);
+    }).join('&');
+  } else {
+    return encodeURIComponent(key) + (data ? '=' + encodeURIComponent(data) : '');
+  }
+
+  return result;
+};
+
 var badRequest = function (res, reason, code) {
   res.status(code || 400).set('Content-Type', 'text/plain').send(reason);
 };
@@ -160,6 +178,7 @@ module.exports = function (options) {
   if (!options.tokenReference || ['function', 'object'].indexOf(typeof options.tokenReference) === -1) {
     throw new Error('No correct token set. It\'s needed for authorization checks.');
   }
+
   if (!options.handler || typeof options.handler !== 'function') {
     throw new Error('No correct handler set. It\'s needed to actually process a Micropub request.');
   }
@@ -254,10 +273,12 @@ module.exports = function (options) {
   router.use(function (req, res, next) {
     logger.debug({ body: req.body }, 'Received a request');
 
-    if (req.headers['content-type'] === 'application/json') {
-      req.body = processJSONencodedBody(req.body);
-    } else {
-      req.body = processFormencodedBody(req.body);
+    if (req.body) {
+      if (req.is('json')) {
+        req.body = processJSONencodedBody(req.body);
+      } else {
+        req.body = processFormencodedBody(req.body);
+      }
     }
 
     if (req.files && Object.getOwnPropertyNames(req.files)[0]) {
@@ -270,7 +291,7 @@ module.exports = function (options) {
 
     if (req.headers.authorization) {
       token = req.headers.authorization.trim().split(/\s+/)[1];
-    } else if (!token && req.body.access_token) {
+    } else if (!token && req.body && req.body.access_token) {
       token = req.body.access_token;
     }
 
@@ -299,13 +320,44 @@ module.exports = function (options) {
       });
   });
 
-  router.get('/', function (req, res) {
-    // If we've gotten this far then token gives proper access and that's all that this route care about
-    return res.sendStatus(200);
+  router.get('/', function (req, res, next) {
+    if (Object.keys(req.query).length === 0) {
+      // If a simple GET is performed, then we just want to verify the authorization credentials
+      return res.sendStatus(200);
+    } else if (req.query.q !== undefined) {
+      if (!options.queryHandler) { return badRequest(res, 'Queries are not supported'); }
+
+      Promise.resolve()
+        .then(function () {
+          // This way the function doesn't have to return a Promise
+          return options.queryHandler(req.query.q, req);
+        })
+        .then(function (result) {
+          if (!result) {
+            badRequest(res, 'Query type is not supported');
+          } else {
+            var defaultFormat = function () {
+              res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
+            };
+
+            res.format({
+              'application/x-www-form-urlencoded': defaultFormat,
+              'application/json': function () { res.send(result); },
+              'default': defaultFormat,
+            });
+          }
+        }).catch(function (err) {
+          next(err);
+        });
+    } else {
+      return badRequest(res, 'No known query parameters');
+    }
   });
 
   router.post('/', function (req, res, next) {
-    if (req.body.mp && req.body.mp.action) {
+    if (req.query.q) {
+      return badRequest(res, 'Queries only supported with GET method', 405);
+    } else if (req.body.mp && req.body.mp.action) {
       return badRequest(res, 'This endpoint does not yet support updates.', 501);
     } else if (!req.body.type) {
       return badRequest(res, 'Missing "h" value.');
@@ -339,3 +391,4 @@ module.exports = function (options) {
 
 module.exports.processFormencodedBody = processFormencodedBody;
 module.exports.processJSONencodedBody = processJSONencodedBody;
+module.exports.queryStringEncodeWithArrayBrackets = queryStringEncodeWithArrayBrackets;

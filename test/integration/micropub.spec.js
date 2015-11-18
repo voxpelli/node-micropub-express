@@ -3,6 +3,7 @@
 
 'use strict';
 
+var qs = require('querystring');
 var chai = require('chai');
 var chaiAsPromised = require('chai-as-promised');
 var nock = require('nock');
@@ -21,7 +22,7 @@ describe('Micropub API', function () {
   var express = require('express');
   var micropub = require('../../');
 
-  var app, agent, token, handlerStub;
+  var app, agent, token, tokenReference, handlerStub, queryHandlerStub;
 
   var mockTokenEndpoint = function (code, response) {
     return nock('https://tokens.indieauth.com/')
@@ -74,18 +75,26 @@ describe('Micropub API', function () {
     nock.enableNetConnect('127.0.0.1');
 
     token = 'abc123';
+
+    tokenReference = {
+      me: 'http://kodfabrik.se/',
+      endpoint: 'https://tokens.indieauth.com/token',
+    };
+
     handlerStub = sinon.stub().resolves({
       url: 'http://example.com/new/post',
+    });
+
+    queryHandlerStub = sinon.stub().resolves({
+      'syndicate-to' : ['https://example.com/twitter', 'https://example.com/fb'],
     });
 
     app = express();
     app.use('/micropub', micropub({
       logger: customLogger,
       handler: handlerStub,
-      tokenReference: {
-        me: 'http://kodfabrik.se/',
-        endpoint: 'https://tokens.indieauth.com/token',
-      },
+      queryHandler: queryHandlerStub,
+      tokenReference: tokenReference,
     }));
 
     agent = request.agent(app);
@@ -97,13 +106,42 @@ describe('Micropub API', function () {
 
   describe('basics', function () {
 
-    // it('should not accept a GET-request', function (done) {
-    //   agent.get('/micropub').expect(405, done);
-    // });
+    var mock;
+
+    beforeEach(function () {
+      mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+    });
+
+    it('should accept a param-less GET-request', function (done) {
+      agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200, function (err) {
+          mock.done();
+          done(err);
+        });
+    });
+
+    it('should not accept GET-request with unknown params', function (done) {
+      agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .query({ foo: 'bar' })
+        .expect(400, 'No known query parameters', function (err) {
+          mock.done();
+          done(err);
+        });
+    });
 
     it('should require authorization', function (done) {
       agent
         .post('/micropub')
+        .expect(401, 'Missing "Authorization" header or body parameter.', done);
+    });
+
+    it('should also require authorization on GET', function (done) {
+      agent
+        .get('/micropub')
         .expect(401, 'Missing "Authorization" header or body parameter.', done);
     });
 
@@ -206,9 +244,9 @@ describe('Micropub API', function () {
       agent
         .post('/micropub')
         .set('Authorization', 'Bearer abc123')
-        .expect(400, 'Missing "h" value.', function () {
+        .expect(400, 'Missing "h" value.', function (err) {
           mock.done();
-          done();
+          done(err);
         });
     });
 
@@ -220,6 +258,31 @@ describe('Micropub API', function () {
       doRequest(mock, done, 400, {
         h: 'entry',
       });
+    });
+
+    it('should require authorization', function (done) {
+      agent
+        .post('/micropub')
+        .expect(401, 'Missing "Authorization" header or body parameter.', function (err) {
+          if (err) { return done(err); }
+
+          handlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
+
+    it('should not call handle on GET', function (done) {
+      return agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .expect(200, function (err) {
+          if (err) { return done(err); }
+
+          handlerStub.should.not.have.been.called;
+
+          done();
+        });
     });
 
     it('should call handle on content', function (done) {
@@ -438,6 +501,157 @@ describe('Micropub API', function () {
         });
     });
 
+
+  });
+
+  describe('query', function () {
+
+    var mock;
+
+    beforeEach(function () {
+      mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+    });
+
+    it('should fail on POST', function (done) {
+      return agent
+        .post('/micropub')
+        .query({ q: 'syndicate-to' })
+        .set('Authorization', 'Bearer ' + token)
+        .send()
+        .expect(405, 'Queries only supported with GET method', function (err) {
+          if (err) { return done(err); }
+
+          queryHandlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
+
+    it('should fail when no queryHandler has been specified', function (done) {
+      app = express();
+      app.use('/micropub', micropub({
+        logger: customLogger,
+        handler: handlerStub,
+        tokenReference: tokenReference,
+      }));
+
+      agent = request.agent(app);
+
+      return agent
+        .get('/micropub')
+        .query({ q: 'syndicate-to' })
+        .set('Authorization', 'Bearer ' + token)
+        .send()
+        .expect(400, 'Queries are not supported', done);
+    });
+
+    it('should require authorization', function (done) {
+      return agent
+        .get('/micropub')
+        .query({ q: 'syndicate-to' })
+        .send()
+        .expect(401, 'Missing "Authorization" header or body parameter.', function (err) {
+          if (err) { return done(err); }
+
+          queryHandlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
+
+    it('should fail when queryHandler doesn\'t support the sent query', function (done) {
+      queryHandlerStub = sinon.stub().resolves(false);
+
+      app = express();
+      app.use('/micropub', micropub({
+        logger: customLogger,
+        handler: handlerStub,
+        queryHandler: queryHandlerStub,
+        tokenReference: tokenReference,
+      }));
+
+      agent = request.agent(app);
+
+      return agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .query({ q: 'syndicate-to' })
+        .send()
+        .expect(400, 'Query type is not supported', function (err) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          queryHandlerStub.should.have.been.calledOnce;
+
+          handlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
+
+    it('should return form encoded response', function (done) {
+      return agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .query({ q: 'syndicate-to' })
+        .send()
+        .expect(200)
+        .expect('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8')
+        .end(function (err, res) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          qs.parse(res.text).should.deep.equal({
+            'syndicate-to[]': [
+              'https://example.com/twitter',
+              'https://example.com/fb',
+            ],
+          });
+
+          queryHandlerStub.should.have.been.calledOnce;
+          queryHandlerStub.firstCall.args.should.have.length(2);
+          queryHandlerStub.firstCall.args[0].should.equal('syndicate-to');
+          queryHandlerStub.firstCall.args[1].should.be.an('object');
+
+          handlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
+
+    it('should support json response', function (done) {
+      return agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .set('Accept', 'application/json')
+        .query({ q: 'syndicate-to' })
+        .send()
+        .expect(200)
+        .expect('Content-Type', 'application/json; charset=utf-8')
+        .end(function (err, res) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          JSON.parse(res.text).should.deep.equal({
+            'syndicate-to': [
+              'https://example.com/twitter',
+              'https://example.com/fb',
+            ],
+          });
+
+          queryHandlerStub.should.have.been.calledOnce;
+          queryHandlerStub.firstCall.args.should.have.length(2);
+          queryHandlerStub.firstCall.args[0].should.equal('syndicate-to');
+          queryHandlerStub.firstCall.args[1].should.be.an('object');
+
+          handlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
 
   });
 

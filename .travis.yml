@@ -3,3 +3,4 @@ node_js:
   - "stable"
   - "5"
 script: npm test
+sudo: false

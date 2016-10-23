@@ -1,3 +1,10 @@
+## 0.5.0 (2016-10-23)
+
+* **Breaking change:** Now requires Node v6
+* **Improvements:** Updated dev dependencies and moved to a Grunt-less, [semistandard](https://github.com/Flet/semistandard)-based setup through [ESLint](http://eslint.org/)
+* **Improvements:** Updated Travis definition and test targets
+* **Minor:** Added `yarn.lock` to `.gitignore` as this is a library and [libraries don't use lock files](https://github.com/yarnpkg/yarn/issues/838#issuecomment-253362537)
+
 ## 0.4.0 (2015-11-18)
 
 

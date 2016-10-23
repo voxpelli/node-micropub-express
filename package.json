@@ -11,25 +11,31 @@
   },
   "main": "index.js",
   "engines": {
-    "node": ">=5.0.0"
+    "node": ">=6.0.0"
   },
   "scripts": {
     "start": "node .",
-    "test": "node -e \"require('grunt').tasks(['test']);\"",
-    "test-all": "node -e \"require('grunt').tasks(['test-all']);\"",
+    "mocha": "NODE_ENV=test DOTENV_FILE=test/test.env istanbul cover _mocha -- -u exports -R spec test/**/*.spec.js",
+    "dependency-check": "JS_FILES=\"*.js test/*.js test/*/*.js\" && dependency-check . $JS_FILES && dependency-check . $JS_FILES --unused --no-dev",
+    "test": "installed-check -e && eslint *.js lib/** test/** && npm run dependency-check && npm run mocha",
     "prepush": "npm test"
   },
   "devDependencies": {
-    "bunyan-adaptor": "voxpelli/node-bunyan-adaptor#1.1.0",
+    "bunyan-adaptor": "^1.1.0",
     "chai": "^3.0.0",
-    "chai-as-promised": "^5.1.0",
-    "coveralls": "^2.11.2",
-    "grunt": "^0.4.5",
-    "husky": ">=0.7.0 <0.10.0-0",
-    "istanbul": "^0.3.17",
-    "lintlovin": "voxpelli/lintlovin#1.x",
-    "mocha": "^2.2.5",
-    "nock": "^2.6.0",
+    "chai-as-promised": "^6.0.0",
+    "coveralls": "^2.11.9",
+    "dependency-check": "^2.5.2",
+    "eslint": "^3.4.0",
+    "eslint-config-semistandard": "^7.0.0",
+    "eslint-config-standard": "^6.0.0",
+    "eslint-plugin-promise": "^3.0.0",
+    "eslint-plugin-standard": "^2.0.0",
+    "husky": "^0.11.9",
+    "installed-check": "^2.0.0",
+    "istanbul": "^0.4.5",
+    "mocha": "^3.1.2",
+    "nock": "^9.0.0",
     "sinon": "^1.15.4",
     "sinon-as-promised": "^4.0.0",
     "sinon-chai": "^2.8.0",
@@ -37,7 +43,7 @@
   },
   "dependencies": {
     "body-parser": "^1.13.1",
-    "bunyan-duckling": "voxpelli/node-bunyan-duckling#1.0.1",
+    "bunyan-duckling": "^1.0.1",
     "express": "^4.13.0",
     "multer": "^1.0.1",
     "node-fetch": "^1.3.0"

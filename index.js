@@ -9,6 +9,7 @@ const bodyParser = require('body-parser');
 const multer = require('multer');
 
 const fetch = require('node-fetch');
+const VError = require('verror');
 
 const pkg = require('./package.json');
 const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
@@ -17,13 +18,11 @@ const formEncodedKey = /\[([^\]]*)\]$/;
 
 const queryStringEncodeWithArrayBrackets = function (data, key) {
   if (Array.isArray(data)) {
-    return data.map(function (item) {
-      return queryStringEncodeWithArrayBrackets(item, key + '[]');
-    }).join('&');
+    return data.map(item => queryStringEncodeWithArrayBrackets(item, key + '[]')).join('&');
   } else if (typeof data === 'object') {
-    return Object.keys(data).map(function (dataKey) {
-      return queryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey);
-    }).join('&');
+    return Object.keys(data)
+      .map(dataKey => queryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey))
+      .join('&');
   } else {
     return encodeURIComponent(key) + (data ? '=' + encodeURIComponent(data) : '');
   }
@@ -136,7 +135,7 @@ const processJSONencodedBody = function (body) {
 let processFiles = function (body, files, logger) {
   const allResults = {};
 
-  ['video', 'photo', 'audio'].forEach(function (type) {
+  ['video', 'photo', 'audio'].forEach(type => {
     let result = [];
 
     ([].concat(files[type] || [], files[type + '[]'] || [])).forEach(function (file) {
@@ -191,18 +190,16 @@ module.exports = function (options) {
 
     const endpoints = {};
 
-    references.forEach(function (reference) {
+    references.forEach(reference => {
       endpoints[reference.endpoint] = endpoints[reference.endpoint] || [];
       endpoints[reference.endpoint].push(reference.me);
     });
 
-    return Promise.all(Object.keys(endpoints).map(function (endpoint) {
-      return validateToken(token, endpoints[endpoint], endpoint);
-    })).then(function (result) {
-      return result.some(function (valid) {
-        return valid;
-      });
-    });
+    return Promise.all(
+      Object.keys(endpoints)
+        .map(endpoint => validateToken(token, endpoints[endpoint], endpoint))
+    )
+      .then(result => result.some(valid => !!valid));
   };
 
   const validateToken = function (token, meReferences, endpoint) {
@@ -219,11 +216,9 @@ module.exports = function (options) {
     };
 
     return fetch(endpoint, fetchOptions)
-      .then(function (response) {
-        return response.text();
-      }).then(function (body) {
-        return qs.parse(body);
-      }).then(function (result) {
+      .then(response => response.text())
+      .then(body => qs.parse(body))
+      .then(result => {
         if (!result.me || !result.scope) {
           return false;
         }
@@ -258,12 +253,10 @@ module.exports = function (options) {
   const storage = multer.memoryStorage();
   const upload = multer({ storage: storage });
 
-  router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(function (type) {
-    return { name: type };
-  })));
+  router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(type => ({ name: type }))));
 
   // Ensure the needed parts are there
-  router.use(function (req, res, next) {
+  router.use((req, res, next) => {
     logger.debug({ body: req.body }, 'Received a request');
 
     if (req.body) {
@@ -294,26 +287,17 @@ module.exports = function (options) {
     }
 
     Promise.resolve()
-      .then(function () {
-        // This way the function doesn't have to return a Promise
-        return tokenReference(req);
-      })
-      .then(function (tokenReference) {
-        return matchAnyTokenReference(token, [].concat(tokenReference));
-      })
-      .then(function (valid) {
-        if (!valid) {
-          return res.sendStatus(403);
-        }
-        next();
-      })
-      .catch(function (err) {
+      // This way the function doesn't have to return a Promise
+      .then(() => tokenReference(req))
+      .then(tokenReference => matchAnyTokenReference(token, [].concat(tokenReference)))
+      .then(valid => valid ? next() : res.sendStatus(403))
+      .catch(err => {
         logger.debug(err, 'An error occured when trying to validate token');
-        next(err);
+        next(new VError(err, "Couldn't validate token"));
       });
   });
 
-  router.get('/', function (req, res, next) {
+  router.get('/', (req, res, next) => {
     if (Object.keys(req.query).length === 0) {
       // If a simple GET is performed, then we just want to verify the authorization credentials
       return res.sendStatus(200);
@@ -321,33 +305,32 @@ module.exports = function (options) {
       if (!options.queryHandler) { return badRequest(res, 'Queries are not supported'); }
 
       Promise.resolve()
-        .then(function () {
-          // This way the function doesn't have to return a Promise
-          return options.queryHandler(req.query.q, req);
-        })
-        .then(function (result) {
+        // This way the function doesn't have to return a Promise
+        .then(() => options.queryHandler(req.query.q, req))
+        .then(result => {
           if (!result) {
             badRequest(res, 'Query type is not supported');
           } else {
-            let defaultFormat = function () {
+            let defaultFormat = () => {
               res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
             };
 
             res.format({
               'application/x-www-form-urlencoded': defaultFormat,
-              'application/json': function () { res.send(result); },
+              'application/json': () => { res.send(result); },
               'default': defaultFormat
             });
           }
-        }).catch(function (err) {
-          next(err);
+        })
+        .catch(err => {
+          next(new VError(err, 'Error in query handling'));
         });
     } else {
       return badRequest(res, 'No known query parameters');
     }
   });
 
-  router.post('/', function (req, res, next) {
+  router.post('/', (req, res, next) => {
     if (req.query.q) {
       return badRequest(res, 'Queries only supported with GET method', 405);
     } else if (req.body.mp && req.body.mp.action) {
@@ -363,18 +346,17 @@ module.exports = function (options) {
     }
 
     Promise.resolve()
-      .then(function () {
-        // This way the function doesn't have to return a Promise
-        return options.handler(data, req);
-      })
-      .then(function (result) {
+      // This way the function doesn't have to return a Promise
+      .then(() => options.handler(data, req))
+      .then(result => {
         if (!result || !result.url) {
           return res.sendStatus(400);
         } else {
           return res.redirect(201, result.url);
         }
-      }).catch(function (err) {
-        next(err);
+      })
+      .catch(err => {
+        next(new VError(err, 'Error in post handling'));
       });
   });
 

@@ -16,8 +16,6 @@ var defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg
 var formEncodedKey = /\[([^\]]*)\]$/;
 
 var queryStringEncodeWithArrayBrackets = function (data, key) {
-  var result = '';
-
   if (Array.isArray(data)) {
     return data.map(function (item) {
       return queryStringEncodeWithArrayBrackets(item, key + '[]');
@@ -29,8 +27,6 @@ var queryStringEncodeWithArrayBrackets = function (data, key) {
   } else {
     return encodeURIComponent(key) + (data ? '=' + encodeURIComponent(data) : '');
   }
-
-  return result;
 };
 
 var badRequest = function (res, reason, code) {
@@ -50,7 +46,7 @@ var reservedProperties = Object.freeze([
   'url',
   'update',
   'add',
-  'delete',
+  'delete'
 ]);
 
 var cleanEmptyKeys = function (result) {
@@ -65,7 +61,7 @@ var processFormencodedBody = function (body) {
   var result = {
     type: body.h ? ['h-' + body.h] : undefined,
     properties: {},
-    mp: {},
+    mp: {}
   };
 
   if (body.h) {
@@ -113,7 +109,7 @@ var processJSONencodedBody = function (body) {
 
   var result = {
     properties: {},
-    mp: {},
+    mp: {}
   };
 
   for (key in body) {
@@ -126,7 +122,6 @@ var processJSONencodedBody = function (body) {
       result.mp[key] = [].concat(value);
     }
   }
-
 
   for (key in body.properties) {
     if (['url'].indexOf(key) !== -1) {
@@ -154,7 +149,7 @@ var processFiles = function (body, files, logger) {
 
       result.push({
         filename: file.originalname,
-        buffer: file.buffer,
+        buffer: file.buffer
       });
     });
 
@@ -218,12 +213,12 @@ module.exports = function (options) {
     }
 
     var fetchOptions = {
-        headers: {
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': userAgent,
-        },
-      };
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': userAgent
+      }
+    };
 
     return fetch(endpoint, fetchOptions)
       .then(function (response) {
@@ -256,7 +251,7 @@ module.exports = function (options) {
 
   var router = express.Router({
     caseSensitive: true,
-    mergeParams: true,
+    mergeParams: true
   });
 
   router.use(bodyParser.urlencoded({ extended: false }));
@@ -343,7 +338,7 @@ module.exports = function (options) {
             res.format({
               'application/x-www-form-urlencoded': defaultFormat,
               'application/json': function () { res.send(result); },
-              'default': defaultFormat,
+              'default': defaultFormat
             });
           }
         }).catch(function (err) {
@@ -383,7 +378,6 @@ module.exports = function (options) {
       }).catch(function (err) {
         next(err);
       });
-
   });
 
   return router;

@@ -11,23 +11,21 @@ chai.use(chaiAsPromised);
 chai.should();
 
 describe('Micropub Parse', function () {
-
   var micropub = require('../');
 
   describe('Formencoded Body', function () {
-
     it('should be correctly parsed', function () {
       micropub.processFormencodedBody({
         h: 'entry',
         content: 'hello world',
-        'mp-syndicate-to': 'http://twitter.com/voxpelli',
+        'mp-syndicate-to': 'http://twitter.com/voxpelli'
       }).should.deep.equal({
         type: ['h-entry'],
         properties: {
-          content: ['hello world'],
+          content: ['hello world']
         },
         mp: {
-          'syndicate-to': ['http://twitter.com/voxpelli'],
+          'syndicate-to': ['http://twitter.com/voxpelli']
         }
       });
     });
@@ -36,12 +34,12 @@ describe('Micropub Parse', function () {
       micropub.processFormencodedBody({
         h: 'entry',
         content: 'hello world',
-        'category[]': ['foo', 'bar'],
+        'category[]': ['foo', 'bar']
       }).should.deep.equal({
         type: ['h-entry'],
         properties: {
           content: ['hello world'],
-          category: ['foo', 'bar'],
+          category: ['foo', 'bar']
         }
       });
     });
@@ -49,33 +47,31 @@ describe('Micropub Parse', function () {
     it('should handle object properties', function () {
       micropub.processFormencodedBody({
         h: 'entry',
-        'content[html]': 'hello world',
+        'content[html]': 'hello world'
       }).should.deep.equal({
         type: ['h-entry'],
         properties: {
-          content: [{'html': 'hello world'}],
+          content: [{'html': 'hello world'}]
         }
       });
     });
-
   });
 
   describe('JSON-encoded Body', function () {
-
     it('should be correctly parsed', function () {
       micropub.processJSONencodedBody({
         type: ['h-entry'],
         'mp-action': 'edit',
         properties: {
-          content: ['hello world'],
-        },
+          content: ['hello world']
+        }
       }).should.deep.equal({
         type: ['h-entry'],
         properties: {
-          content: ['hello world'],
+          content: ['hello world']
         },
         mp: {
-          'action': ['edit'],
+          'action': ['edit']
         }
       });
     });
@@ -85,34 +81,32 @@ describe('Micropub Parse', function () {
         type: ['h-entry'],
         properties: {
           content: ['hello world'],
-          url: ['http://example.com/'],
-        },
+          url: ['http://example.com/']
+        }
       }).should.deep.equal({
         type: ['h-entry'],
         url: 'http://example.com/',
         properties: {
-          content: ['hello world'],
-        },
+          content: ['hello world']
+        }
       });
     });
-
   });
 
   describe('Formencoded Response', function () {
-
     it('should be correctly formatted', function () {
       var result = micropub.queryStringEncodeWithArrayBrackets({
         'syndicate-to': [
           'foo',
-          'bar',
-        ],
+          'bar'
+        ]
       });
 
       qs.parse(result).should.deep.equal({
         'syndicate-to[]': [
           'foo',
-          'bar',
-        ],
+          'bar'
+        ]
       });
     });
 
@@ -122,17 +116,15 @@ describe('Micropub Parse', function () {
         bar: [
           'foo',
           { abc: 'xyc' },
-          { abc: '789' },
-        ],
+          { abc: '789' }
+        ]
       });
 
       qs.parse(result).should.deep.equal({
         foo: '123',
         'bar[]': 'foo',
-        'bar[][abc]': ['xyc', '789'],
+        'bar[][abc]': ['xyc', '789']
       });
     });
-
   });
-
 });

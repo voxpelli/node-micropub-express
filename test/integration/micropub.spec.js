@@ -46,7 +46,7 @@ describe('Micropub API', function () {
         .type('form')
         .send(content || {
           h: 'entry',
-          content: 'hello world',
+          content: 'hello world'
         });
     }
 
@@ -78,15 +78,15 @@ describe('Micropub API', function () {
 
     tokenReference = {
       me: 'http://kodfabrik.se/',
-      endpoint: 'https://tokens.indieauth.com/token',
+      endpoint: 'https://tokens.indieauth.com/token'
     };
 
     handlerStub = sinon.stub().resolves({
-      url: 'http://example.com/new/post',
+      url: 'http://example.com/new/post'
     });
 
     queryHandlerStub = sinon.stub().resolves({
-      'syndicate-to' : ['https://example.com/twitter', 'https://example.com/fb'],
+      'syndicate-to': ['https://example.com/twitter', 'https://example.com/fb']
     });
 
     app = express();
@@ -94,7 +94,7 @@ describe('Micropub API', function () {
       logger: customLogger,
       handler: handlerStub,
       queryHandler: queryHandlerStub,
-      tokenReference: tokenReference,
+      tokenReference: tokenReference
     }));
 
     agent = request.agent(app);
@@ -105,7 +105,6 @@ describe('Micropub API', function () {
   });
 
   describe('basics', function () {
-
     var mock;
 
     beforeEach(function () {
@@ -144,11 +143,9 @@ describe('Micropub API', function () {
         .get('/micropub')
         .expect(401, 'Missing "Authorization" header or body parameter.', done);
     });
-
   });
 
   describe('auth', function () {
-
     it('should call handler and return 201 on successful request', function (done) {
       var mock = nock('https://tokens.indieauth.com/')
         .matchHeader('Authorization', function (val) { return val && val[0] === 'Bearer ' + token; })
@@ -192,9 +189,9 @@ describe('Micropub API', function () {
         tokenReference: function () {
           return [
             { endpoint: 'https://tokens.indieauth.com/token', me: 'http://kodfabrik.se/' },
-            { endpoint: 'https://tokens.indieauth.com/token', me: 'http://example.com/' },
+            { endpoint: 'https://tokens.indieauth.com/token', me: 'http://example.com/' }
           ];
-        },
+        }
       }));
 
       agent = request.agent(app);
@@ -212,8 +209,8 @@ describe('Micropub API', function () {
         userAgent: 'foobar/1.0',
         tokenReference: {
           me: 'http://kodfabrik.se/',
-          endpoint: 'https://tokens.indieauth.com/token',
-        },
+          endpoint: 'https://tokens.indieauth.com/token'
+        }
       }));
 
       agent = request.agent(app);
@@ -229,11 +226,9 @@ describe('Micropub API', function () {
 
       doRequest(mock, done);
     });
-
   });
 
   describe('create', function () {
-
     var mock;
 
     beforeEach(function () {
@@ -256,7 +251,7 @@ describe('Micropub API', function () {
 
     it('should fail when no properties', function (done) {
       doRequest(mock, done, 400, {
-        h: 'entry',
+        h: 'entry'
       });
     });
 
@@ -273,7 +268,7 @@ describe('Micropub API', function () {
     });
 
     it('should not call handle on GET', function (done) {
-      return agent
+      agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .expect(200, function (err) {
@@ -298,7 +293,7 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              content: ['hello world'],
+              content: ['hello world']
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
@@ -310,7 +305,7 @@ describe('Micropub API', function () {
     it('should call handle on like-of', function (done) {
       doRequest(false, false, 201, {
         h: 'entry',
-        'like-of': 'http://example.com/liked/post',
+        'like-of': 'http://example.com/liked/post'
       })
         .expect('Location', 'http://example.com/new/post')
         .end(function (err) {
@@ -323,7 +318,7 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              'like-of': ['http://example.com/liked/post'],
+              'like-of': ['http://example.com/liked/post']
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
@@ -335,7 +330,7 @@ describe('Micropub API', function () {
     it('should handle totally random properties', function (done) {
       doRequest(false, false, 201, {
         h: 'entry',
-        foo: '123',
+        foo: '123'
       })
         .expect('Location', 'http://example.com/new/post')
         .end(function (err) {
@@ -348,7 +343,7 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              'foo': ['123'],
+              'foo': ['123']
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
@@ -360,7 +355,7 @@ describe('Micropub API', function () {
     it('should call handle on HTML content', function (done) {
       doRequest(false, false, 201, {
         h: 'entry',
-        'content[html]': '<strong>Hi</strong>',
+        'content[html]': '<strong>Hi</strong>'
       })
         .expect('Location', 'http://example.com/new/post')
         .end(function (err) {
@@ -374,8 +369,8 @@ describe('Micropub API', function () {
             type: ['h-entry'],
             properties: {
               content: [{
-                html: '<strong>Hi</strong>',
-              }],
+                html: '<strong>Hi</strong>'
+              }]
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
@@ -389,8 +384,8 @@ describe('Micropub API', function () {
         return req.type('json').send({
           type: ['h-entry'],
           properties: {
-            content: ['hello world'],
-          },
+            content: ['hello world']
+          }
         });
       })
         .expect('Location', 'http://example.com/new/post')
@@ -404,7 +399,7 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              content: ['hello world'],
+              content: ['hello world']
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
@@ -430,7 +425,7 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              content: ['hello world'],
+              content: ['hello world']
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
@@ -443,7 +438,7 @@ describe('Micropub API', function () {
       doRequest(false, false, 201, {
         h: 'entry',
         'mp-foo': 'bar',
-        'like-of': 'http://example.com/liked/post',
+        'like-of': 'http://example.com/liked/post'
       })
         .expect('Location', 'http://example.com/new/post')
         .end(function (err) {
@@ -456,11 +451,11 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              'like-of': ['http://example.com/liked/post'],
+              'like-of': ['http://example.com/liked/post']
             },
             mp: {
-              foo: ['bar'],
-            },
+              foo: ['bar']
+            }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
 
@@ -474,8 +469,8 @@ describe('Micropub API', function () {
           type: ['h-entry'],
           'mp-foo': 'bar',
           properties: {
-            content: ['hello world'],
-          },
+            content: ['hello world']
+          }
         });
       })
         .expect('Location', 'http://example.com/new/post')
@@ -489,23 +484,20 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              content: ['hello world'],
+              content: ['hello world']
             },
             mp: {
-              foo: ['bar'],
-            },
+              foo: ['bar']
+            }
           });
           handlerStub.firstCall.args[1].should.be.an('object');
 
           done();
         });
     });
-
-
   });
 
   describe('query', function () {
-
     var mock;
 
     beforeEach(function () {
@@ -513,7 +505,7 @@ describe('Micropub API', function () {
     });
 
     it('should fail on POST', function (done) {
-      return agent
+      agent
         .post('/micropub')
         .query({ q: 'syndicate-to' })
         .set('Authorization', 'Bearer ' + token)
@@ -532,12 +524,12 @@ describe('Micropub API', function () {
       app.use('/micropub', micropub({
         logger: customLogger,
         handler: handlerStub,
-        tokenReference: tokenReference,
+        tokenReference: tokenReference
       }));
 
       agent = request.agent(app);
 
-      return agent
+      agent
         .get('/micropub')
         .query({ q: 'syndicate-to' })
         .set('Authorization', 'Bearer ' + token)
@@ -546,7 +538,7 @@ describe('Micropub API', function () {
     });
 
     it('should require authorization', function (done) {
-      return agent
+      agent
         .get('/micropub')
         .query({ q: 'syndicate-to' })
         .send()
@@ -567,12 +559,12 @@ describe('Micropub API', function () {
         logger: customLogger,
         handler: handlerStub,
         queryHandler: queryHandlerStub,
-        tokenReference: tokenReference,
+        tokenReference: tokenReference
       }));
 
       agent = request.agent(app);
 
-      return agent
+      agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .query({ q: 'syndicate-to' })
@@ -591,7 +583,7 @@ describe('Micropub API', function () {
     });
 
     it('should return form encoded response', function (done) {
-      return agent
+      agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .query({ q: 'syndicate-to' })
@@ -603,12 +595,12 @@ describe('Micropub API', function () {
 
           mock.done();
 
-          qs.parse(res.text).should.deep.equal({
+          ({
             'syndicate-to[]': [
               'https://example.com/twitter',
-              'https://example.com/fb',
-            ],
-          });
+              'https://example.com/fb'
+            ]
+          }).should.deep.equal(qs.parse(res.text));
 
           queryHandlerStub.should.have.been.calledOnce;
           queryHandlerStub.firstCall.args.should.have.length(2);
@@ -622,7 +614,7 @@ describe('Micropub API', function () {
     });
 
     it('should support json response', function (done) {
-      return agent
+      agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .set('Accept', 'application/json')
@@ -638,8 +630,8 @@ describe('Micropub API', function () {
           JSON.parse(res.text).should.deep.equal({
             'syndicate-to': [
               'https://example.com/twitter',
-              'https://example.com/fb',
-            ],
+              'https://example.com/fb'
+            ]
           });
 
           queryHandlerStub.should.have.been.calledOnce;
@@ -652,7 +644,5 @@ describe('Micropub API', function () {
           done();
         });
     });
-
   });
-
 });

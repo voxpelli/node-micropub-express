@@ -3,13 +3,13 @@
 
 'use strict';
 
-var qs = require('querystring');
-var chai = require('chai');
-var chaiAsPromised = require('chai-as-promised');
-var nock = require('nock');
-var request = require('supertest');
-var sinon = require('sinon');
-var sinonChai = require('sinon-chai');
+const qs = require('querystring');
+const chai = require('chai');
+const chaiAsPromised = require('chai-as-promised');
+const nock = require('nock');
+const request = require('supertest');
+const sinon = require('sinon');
+const sinonChai = require('sinon-chai');
 
 require('sinon-as-promised');
 
@@ -18,13 +18,13 @@ chai.use(sinonChai);
 chai.should();
 
 describe('Micropub API', function () {
-  var customLogger = require('bunyan-adaptor')({ verbose: function () {} });
-  var express = require('express');
-  var micropub = require('../../');
+  const customLogger = require('bunyan-adaptor')({ verbose: function () {} });
+  const express = require('express');
+  const micropub = require('../../');
 
-  var app, agent, token, tokenReference, handlerStub, queryHandlerStub;
+  let app, agent, token, tokenReference, handlerStub, queryHandlerStub;
 
-  var mockTokenEndpoint = function (code, response) {
+  let mockTokenEndpoint = function (code, response) {
     return nock('https://tokens.indieauth.com/')
       .get('/token')
       .reply(
@@ -34,8 +34,8 @@ describe('Micropub API', function () {
       );
   };
 
-  var doRequest = function (mock, done, code, content, response) {
-    var req = agent
+  let doRequest = function (mock, done, code, content, response) {
+    let req = agent
       .post('/micropub')
       .set('Authorization', 'Bearer ' + token);
 
@@ -105,7 +105,7 @@ describe('Micropub API', function () {
   });
 
   describe('basics', function () {
-    var mock;
+    let mock;
 
     beforeEach(function () {
       mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
@@ -147,7 +147,7 @@ describe('Micropub API', function () {
 
   describe('auth', function () {
     it('should call handler and return 201 on successful request', function (done) {
-      var mock = nock('https://tokens.indieauth.com/')
+      const mock = nock('https://tokens.indieauth.com/')
         .matchHeader('Authorization', function (val) { return val && val[0] === 'Bearer ' + token; })
         .matchHeader('Content-Type', function (val) { return val && val[0] === 'application/x-www-form-urlencoded'; })
         .matchHeader('User-Agent', function (val) { return val && /^micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val); })
@@ -162,22 +162,22 @@ describe('Micropub API', function () {
     });
 
     it('should return error on invalid token', function (done) {
-      var mock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
+      const mock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
       doRequest(mock, done, 403);
     });
 
     it('should return error on mismatching me', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
+      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
       doRequest(mock, done, 403);
     });
 
     it('should return error on missing post scope', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
+      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
       doRequest(mock, done, 403);
     });
 
     it('should handle multiple scopes', function (done) {
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
       doRequest(mock, done);
     });
 
@@ -196,7 +196,7 @@ describe('Micropub API', function () {
 
       agent = request.agent(app);
 
-      var mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fexample.com%2F&scope=post,misc');
+      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fexample.com%2F&scope=post,misc');
 
       doRequest(mock, done);
     });
@@ -215,7 +215,7 @@ describe('Micropub API', function () {
 
       agent = request.agent(app);
 
-      var mock = nock('https://tokens.indieauth.com/')
+      const mock = nock('https://tokens.indieauth.com/')
         .matchHeader('User-Agent', function (val) { return val && /^foobar\/1\.0 micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val); })
         .get('/token')
         .reply(
@@ -229,7 +229,7 @@ describe('Micropub API', function () {
   });
 
   describe('create', function () {
-    var mock;
+    let mock;
 
     beforeEach(function () {
       mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
@@ -498,7 +498,7 @@ describe('Micropub API', function () {
   });
 
   describe('query', function () {
-    var mock;
+    let mock;
 
     beforeEach(function () {
       mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');

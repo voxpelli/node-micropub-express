@@ -2,20 +2,20 @@
 
 'use strict';
 
-var qs = require('querystring');
+const qs = require('querystring');
 
-var express = require('express');
-var bodyParser = require('body-parser');
-var multer = require('multer');
+const express = require('express');
+const bodyParser = require('body-parser');
+const multer = require('multer');
 
-var fetch = require('node-fetch');
+const fetch = require('node-fetch');
 
-var pkg = require('./package.json');
-var defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
+const pkg = require('./package.json');
+const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
-var formEncodedKey = /\[([^\]]*)\]$/;
+const formEncodedKey = /\[([^\]]*)\]$/;
 
-var queryStringEncodeWithArrayBrackets = function (data, key) {
+const queryStringEncodeWithArrayBrackets = function (data, key) {
   if (Array.isArray(data)) {
     return data.map(function (item) {
       return queryStringEncodeWithArrayBrackets(item, key + '[]');
@@ -29,18 +29,18 @@ var queryStringEncodeWithArrayBrackets = function (data, key) {
   }
 };
 
-var badRequest = function (res, reason, code) {
+const badRequest = function (res, reason, code) {
   res.status(code || 400).set('Content-Type', 'text/plain').send(reason);
 };
 
-var normalizeUrl = function (url) {
+const normalizeUrl = function (url) {
   if (url.substr(-1) !== '/') {
     url += '/';
   }
   return url;
 };
 
-var reservedProperties = Object.freeze([
+const reservedProperties = Object.freeze([
   'access_token',
   'q',
   'url',
@@ -49,16 +49,16 @@ var reservedProperties = Object.freeze([
   'delete'
 ]);
 
-var cleanEmptyKeys = function (result) {
-  for (var key in result) {
+const cleanEmptyKeys = function (result) {
+  for (const key in result) {
     if (typeof result[key] === 'object' && Object.getOwnPropertyNames(result[key])[0] === undefined) {
       delete result[key];
     }
   }
 };
 
-var processFormencodedBody = function (body) {
-  var result = {
+const processFormencodedBody = function (body) {
+  const result = {
     type: body.h ? ['h-' + body.h] : undefined,
     properties: {},
     mp: {}
@@ -69,17 +69,17 @@ var processFormencodedBody = function (body) {
     delete body.h;
   }
 
-  var key, subKey, value, targetProperty, tmp;
-
-  for (key in body) {
-    value = body[key];
+  for (let key in body) {
+    let value = body[key];
 
     if (reservedProperties.indexOf(key) !== -1) {
       result[key] = value;
     } else {
+      let subKey, targetProperty;
+
       while ((subKey = formEncodedKey.exec(key))) {
         if (subKey[1]) {
-          tmp = {};
+          let tmp = {};
           tmp[subKey[1]] = value;
           value = tmp;
         } else {
@@ -104,16 +104,14 @@ var processFormencodedBody = function (body) {
   return result;
 };
 
-var processJSONencodedBody = function (body) {
-  var key, value;
-
-  var result = {
+const processJSONencodedBody = function (body) {
+  const result = {
     properties: {},
     mp: {}
   };
 
-  for (key in body) {
-    value = body[key];
+  for (let key in body) {
+    let value = body[key];
 
     if (reservedProperties.indexOf(key) !== -1 || ['properties', 'type'].indexOf(key) !== -1) {
       result[key] = value;
@@ -123,7 +121,7 @@ var processJSONencodedBody = function (body) {
     }
   }
 
-  for (key in body.properties) {
+  for (let key in body.properties) {
     if (['url'].indexOf(key) !== -1) {
       result[key] = result[key] || [].concat(body.properties[key])[0];
       delete body.properties[key];
@@ -135,11 +133,11 @@ var processJSONencodedBody = function (body) {
   return result;
 };
 
-var processFiles = function (body, files, logger) {
-  var allResults = {};
+let processFiles = function (body, files, logger) {
+  const allResults = {};
 
   ['video', 'photo', 'audio'].forEach(function (type) {
-    var result = [];
+    let result = [];
 
     ([].concat(files[type] || [], files[type + '[]'] || [])).forEach(function (file) {
       if (file.truncated) {
@@ -168,7 +166,7 @@ var processFiles = function (body, files, logger) {
 module.exports = function (options) {
   options = options || {};
 
-  var logger = options.logger || require('bunyan-duckling');
+  const logger = options.logger || require('bunyan-duckling');
 
   if (!options.tokenReference || ['function', 'object'].indexOf(typeof options.tokenReference) === -1) {
     throw new Error('No correct token set. It\'s needed for authorization checks.');
@@ -178,20 +176,20 @@ module.exports = function (options) {
     throw new Error('No correct handler set. It\'s needed to actually process a Micropub request.');
   }
 
-  var userAgent = ((options.userAgent || '') + ' ' + defaultUserAgent).trim();
+  const userAgent = ((options.userAgent || '') + ' ' + defaultUserAgent).trim();
 
-  var tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : function () {
+  const tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : function () {
     return Promise.resolve(options.tokenReference);
   };
 
   // Helper functions
 
-  var matchAnyTokenReference = function (token, references) {
+  const matchAnyTokenReference = function (token, references) {
     if (!references || !references.length) {
       return Promise.resolve(false);
     }
 
-    var endpoints = {};
+    const endpoints = {};
 
     references.forEach(function (reference) {
       endpoints[reference.endpoint] = endpoints[reference.endpoint] || [];
@@ -207,12 +205,12 @@ module.exports = function (options) {
     });
   };
 
-  var validateToken = function (token, meReferences, endpoint) {
+  const validateToken = function (token, meReferences, endpoint) {
     if (!token) {
       return Promise.resolve(false);
     }
 
-    var fetchOptions = {
+    const fetchOptions = {
       headers: {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -237,7 +235,7 @@ module.exports = function (options) {
           return false;
         }
 
-        var scopes = result.scope.split(',');
+        let scopes = result.scope.split(',');
         if (scopes.indexOf('post') === -1) {
           logger.debug('Missing "post scope, instead got: ' + result.scope);
           return false;
@@ -249,7 +247,7 @@ module.exports = function (options) {
 
   // Router setup
 
-  var router = express.Router({
+  const router = express.Router({
     caseSensitive: true,
     mergeParams: true
   });
@@ -257,8 +255,8 @@ module.exports = function (options) {
   router.use(bodyParser.urlencoded({ extended: false }));
   router.use(bodyParser.json());
 
-  var storage = multer.memoryStorage();
-  var upload = multer({ storage: storage });
+  const storage = multer.memoryStorage();
+  const upload = multer({ storage: storage });
 
   router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(function (type) {
     return { name: type };
@@ -282,7 +280,7 @@ module.exports = function (options) {
 
     logger.debug({ body: req.body }, 'Processed a request');
 
-    var token;
+    let token;
 
     if (req.headers.authorization) {
       token = req.headers.authorization.trim().split(/\s+/)[1];
@@ -331,7 +329,7 @@ module.exports = function (options) {
           if (!result) {
             badRequest(res, 'Query type is not supported');
           } else {
-            var defaultFormat = function () {
+            let defaultFormat = function () {
               res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
             };
 
@@ -358,7 +356,7 @@ module.exports = function (options) {
       return badRequest(res, 'Missing "h" value.');
     }
 
-    var data = req.body;
+    const data = req.body;
 
     if (!data.properties) {
       return badRequest(res, 'Not finding any properties.');

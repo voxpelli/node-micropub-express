@@ -3,15 +3,15 @@
 
 'use strict';
 
-var qs = require('querystring');
-var chai = require('chai');
-var chaiAsPromised = require('chai-as-promised');
+const qs = require('querystring');
+const chai = require('chai');
+const chaiAsPromised = require('chai-as-promised');
 
 chai.use(chaiAsPromised);
 chai.should();
 
 describe('Micropub Parse', function () {
-  var micropub = require('../');
+  const micropub = require('../');
 
   describe('Formencoded Body', function () {
     it('should be correctly parsed', function () {
@@ -95,7 +95,7 @@ describe('Micropub Parse', function () {
 
   describe('Formencoded Response', function () {
     it('should be correctly formatted', function () {
-      var result = micropub.queryStringEncodeWithArrayBrackets({
+      const result = micropub.queryStringEncodeWithArrayBrackets({
         'syndicate-to': [
           'foo',
           'bar'
@@ -111,7 +111,7 @@ describe('Micropub Parse', function () {
     });
 
     it('should format complex variants', function () {
-      var result = micropub.queryStringEncodeWithArrayBrackets({
+      const result = micropub.queryStringEncodeWithArrayBrackets({
         foo: 123,
         bar: [
           'foo',

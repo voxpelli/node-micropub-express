@@ -301,7 +301,14 @@ module.exports = function (options) {
       .then(tokenReference => matchAnyTokenReference(token, [].concat(tokenReference)))
       .then(valid => {
         if (valid && !(valid instanceof Error)) { return next(); }
-        if (valid instanceof TokenScopeError) { return res.sendStatus(401); }
+
+        if (valid instanceof TokenScopeError) {
+          return res.status(401).json({
+            error: 'insufficient_scope',
+            error_description: valid.message
+          });
+        }
+
         res.sendStatus(403);
       })
       .catch(err => {

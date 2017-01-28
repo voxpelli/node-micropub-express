@@ -343,14 +343,12 @@ module.exports = function (options) {
           if (!result) {
             badRequest(res, 'Query type is not supported');
           } else {
-            const defaultFormat = () => {
-              res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
-            };
-
             res.format({
-              'application/x-www-form-urlencoded': defaultFormat,
-              'application/json': () => { res.send(result); },
-              'default': defaultFormat
+              'application/json': () => { res.json(result); },
+              'application/x-www-form-urlencoded': () => {
+                res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
+              },
+              'default': () => { res.json(result); }
             });
           }
         })

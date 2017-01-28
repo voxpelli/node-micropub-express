@@ -603,6 +603,7 @@ describe('Micropub API', function () {
       agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
+        .set('Accept', 'application/x-www-form-urlencoded')
         .query({ q: 'syndicate-to' })
         .send()
         .expect(200)
@@ -657,6 +658,55 @@ describe('Micropub API', function () {
           queryHandlerStub.firstCall.args[1].should.be.an('object');
 
           handlerStub.should.not.have.been.called;
+
+          done();
+        });
+    });
+
+    it('should prefer json', function (done) {
+      agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .query({ q: 'syndicate-to' })
+        .send()
+        .expect(200)
+        .expect('Content-Type', 'application/json; charset=utf-8')
+        .end(function (err, res) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          JSON.parse(res.text).should.deep.equal({
+            'syndicate-to': [
+              'https://example.com/twitter',
+              'https://example.com/fb'
+            ]
+          });
+
+          done();
+        });
+    });
+
+    it('should use json when no matches are detected', function (done) {
+      agent
+        .get('/micropub')
+        .set('Authorization', 'Bearer ' + token)
+        .set('Accept', 'text/plain')
+        .query({ q: 'syndicate-to' })
+        .send()
+        .expect(200)
+        .expect('Content-Type', 'application/json; charset=utf-8')
+        .end(function (err, res) {
+          if (err) { return done(err); }
+
+          mock.done();
+
+          JSON.parse(res.text).should.deep.equal({
+            'syndicate-to': [
+              'https://example.com/twitter',
+              'https://example.com/fb'
+            ]
+          });
 
           done();
         });

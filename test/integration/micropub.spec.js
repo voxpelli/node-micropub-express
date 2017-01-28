@@ -599,6 +599,46 @@ describe('Micropub API', function () {
         });
     });
 
+    it('should support empty config even when no queryHandler has been specified', () => {
+      app = express();
+      app.use('/micropub', micropub({
+        logger: customLogger,
+        handler: handlerStub,
+        tokenReference: tokenReference
+      }));
+
+      return request(app)
+        .get('/micropub')
+        .query({ q: 'config' })
+        .set('Authorization', 'Bearer ' + token)
+        .send()
+        .expect(200, {});
+    });
+
+    it('should support empty config even when queryHandler doesn\'t support the sent query', () => {
+      queryHandlerStub = sinon.stub().resolves(false);
+
+      app = express();
+      app.use('/micropub', micropub({
+        logger: customLogger,
+        handler: handlerStub,
+        queryHandler: queryHandlerStub,
+        tokenReference: tokenReference
+      }));
+
+      return request(app)
+        .get('/micropub')
+        .query({ q: 'config' })
+        .set('Authorization', 'Bearer ' + token)
+        .send()
+        .expect(200, {})
+        .then(() => {
+          mock.done();
+          queryHandlerStub.should.have.been.calledOnce;
+          handlerStub.should.not.have.been.called;
+        });
+    });
+
     it('should return form encoded response', function (done) {
       agent
         .get('/micropub')

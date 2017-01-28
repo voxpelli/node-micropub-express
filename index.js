@@ -334,23 +334,25 @@ module.exports = function (options) {
       // If a simple GET is performed, then we just want to verify the authorization credentials
       return res.sendStatus(200);
     } else if (req.query.q !== undefined) {
-      if (!options.queryHandler) { return badRequest(res, 'Queries are not supported'); }
+      if (!options.queryHandler) {
+        return req.query.q === 'config' ? res.json({}) : badRequest(res, 'Queries are not supported');
+      }
 
       Promise.resolve()
         // This way the function doesn't have to return a Promise
         .then(() => options.queryHandler(req.query.q, req))
         .then(result => {
           if (!result) {
-            badRequest(res, 'Query type is not supported');
-          } else {
-            res.format({
-              'application/json': () => { res.json(result); },
-              'application/x-www-form-urlencoded': () => {
-                res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
-              },
-              'default': () => { res.json(result); }
-            });
+            return req.query.q === 'config' ? res.json({}) : badRequest(res, 'Query type is not supported');
           }
+
+          res.format({
+            'application/json': () => { res.json(result); },
+            'application/x-www-form-urlencoded': () => {
+              res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
+            },
+            'default': () => { res.json(result); }
+          });
         })
         .catch(err => {
           next(new VError(err, 'Error in query handling'));

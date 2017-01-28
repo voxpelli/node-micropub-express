@@ -1,3 +1,7 @@
+## 0.6.1 (2017-01-28)
+
+* **Improvements:** _Spec compliance:_ Always return a response to `config` queries, defaulting to a `{}` JSON body.
+
 ## 0.6.0 (2017-01-28)
 
 * **Minor breaking change:** _Spec compliance:_ Updated error responses to always use JSON bodies, previously used plain text responses

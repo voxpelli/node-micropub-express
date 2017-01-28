@@ -225,15 +225,14 @@ module.exports = function (options) {
       .then(body => qs.parse(body))
       .then(result => {
         if (!result.me || !result.scope) {
-          return new TokenError('Missing one or more of required response parameters "me" and "scope"');
+          return new TokenError('Invalid token');
         }
 
         meReferences = meReferences.map(normalizeUrl);
 
         if (meReferences.indexOf(normalizeUrl(result.me)) === -1) {
-          const errMessage = 'Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"';
-          logger.debug(errMessage);
-          return new TokenError(errMessage);
+          logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"');
+          return new TokenError(`Token "me" didn't match any valid reference. Got: "${result.me}"`);
         }
 
         const scopes = result.scope.split(',');
@@ -307,7 +306,10 @@ module.exports = function (options) {
           });
         }
 
-        res.sendStatus(403);
+        res.status(403).json({
+          error: 'forbidden',
+          error_description: (valid || {}).message || undefined
+        });
       })
       .catch(err => {
         logger.debug(err, 'An error occured when trying to validate token');

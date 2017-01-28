@@ -160,12 +160,18 @@ describe('Micropub API', function () {
 
     it('should return error on invalid token', function (done) {
       const mock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
-      doRequest(mock, done, 403);
+      doRequest(mock, done, 403, undefined, {
+        error: 'forbidden',
+        error_description: 'Invalid token'
+      });
     });
 
     it('should return error on mismatching me', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
-      doRequest(mock, done, 403);
+      doRequest(mock, done, 403, undefined, {
+        error: 'forbidden',
+        error_description: 'Token "me" didn\'t match any valid reference. Got: "http://voxpelli.com/"'
+      });
     });
 
     it('should return error on missing post scope', function (done) {

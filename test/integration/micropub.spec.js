@@ -178,7 +178,8 @@ describe('Micropub API', function () {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
       doRequest(mock, done, 401, undefined, {
         error: 'insufficient_scope',
-        error_description: 'Missing "post" scope, instead got: misc'
+        error_description: 'Missing "post" scope, instead got: misc',
+        scope: 'post'
       });
     });
 

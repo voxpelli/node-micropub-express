@@ -12,10 +12,17 @@ const VError = require('verror');
 const pkg = require('./package.json');
 const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
+const requiredScope = 'post';
+
 const formEncodedKey = /\[([^\]]*)\]$/;
 
 class TokenError extends Error {}
-class TokenScopeError extends TokenError {}
+class TokenScopeError extends TokenError {
+  constructor (message, scope) {
+    super(message);
+    this.scope = scope;
+  }
+}
 
 const queryStringEncodeWithArrayBrackets = function (data, key) {
   if (Array.isArray(data)) {
@@ -236,10 +243,10 @@ module.exports = function (options) {
         }
 
         const scopes = result.scope.split(',');
-        if (scopes.indexOf('post') === -1) {
-          const errMessage = 'Missing "post" scope, instead got: ' + result.scope;
+        if (scopes.indexOf(requiredScope) === -1) {
+          const errMessage = `Missing "${requiredScope}" scope, instead got: ${result.scope}`;
           logger.debug(errMessage);
-          return new TokenScopeError(errMessage);
+          return new TokenScopeError(errMessage, requiredScope);
         }
 
         return true;
@@ -302,7 +309,8 @@ module.exports = function (options) {
         if (valid instanceof TokenScopeError) {
           return res.status(401).json({
             error: 'insufficient_scope',
-            error_description: valid.message
+            error_description: valid.message,
+            scope: valid.scope
           });
         }
 

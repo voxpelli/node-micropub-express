@@ -16,6 +16,9 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
 
 const formEncodedKey = /\[([^\]]*)\]$/;
 
+class TokenError extends Error {}
+class TokenScopeError extends TokenError {}
+
 const queryStringEncodeWithArrayBrackets = function (data, key) {
   if (Array.isArray(data)) {
     return data.map(item => queryStringEncodeWithArrayBrackets(item, key + '[]')).join('&');
@@ -199,12 +202,16 @@ module.exports = function (options) {
       Object.keys(endpoints)
         .map(endpoint => validateToken(token, endpoints[endpoint], endpoint))
     )
-      .then(result => result.some(valid => !!valid));
+      .then(result =>
+        result.some(valid => valid && !(valid instanceof Error)) ||
+        result.find(valid => valid instanceof TokenScopeError) ||
+        result[0]
+      );
   };
 
   const validateToken = function (token, meReferences, endpoint) {
     if (!token) {
-      return Promise.resolve(false);
+      return Promise.resolve(new TokenError('No token specified'));
     }
 
     const fetchOptions = {
@@ -220,20 +227,22 @@ module.exports = function (options) {
       .then(body => qs.parse(body))
       .then(result => {
         if (!result.me || !result.scope) {
-          return false;
+          return new TokenError('Missing one or more of required response parameters "me" and "scope"');
         }
 
         meReferences = meReferences.map(normalizeUrl);
 
         if (meReferences.indexOf(normalizeUrl(result.me)) === -1) {
-          logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"');
-          return false;
+          const errMessage = 'Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"';
+          logger.debug(errMessage);
+          return new TokenError(errMessage);
         }
 
         let scopes = result.scope.split(',');
         if (scopes.indexOf('post') === -1) {
-          logger.debug('Missing "post scope, instead got: ' + result.scope);
-          return false;
+          const errMessage = 'Missing "post" scope, instead got: ' + result.scope;
+          logger.debug(errMessage);
+          return new TokenScopeError(errMessage);
         }
 
         return true;
@@ -290,7 +299,11 @@ module.exports = function (options) {
       // This way the function doesn't have to return a Promise
       .then(() => tokenReference(req))
       .then(tokenReference => matchAnyTokenReference(token, [].concat(tokenReference)))
-      .then(valid => valid ? next() : res.sendStatus(403))
+      .then(valid => {
+        if (valid && !(valid instanceof Error)) { return next(); }
+        if (valid instanceof TokenScopeError) { return res.sendStatus(401); }
+        res.sendStatus(403);
+      })
       .catch(err => {
         logger.debug(err, 'An error occured when trying to validate token');
         next(new VError(err, "Couldn't validate token"));

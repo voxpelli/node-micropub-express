@@ -1,3 +1,9 @@
+# Of course we don't want to commit any of our dependencies
 /node_modules
+
+# Ignore test coverage
 /coverage
+
+# We're a library, so please, no yarn.lock
 /yarn.lock
+yarn-error.log

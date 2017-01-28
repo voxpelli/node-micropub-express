@@ -193,6 +193,11 @@ describe('Micropub API', function () {
       doRequest(mock, done);
     });
 
+    it('should handle space-separated scopes', function (done) {
+      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post%20misc');
+      doRequest(mock, done);
+    });
+
     it('should handle multiple token references', function (done) {
       app = express();
       app.use('/micropub', micropub({

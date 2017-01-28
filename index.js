@@ -245,8 +245,9 @@ module.exports = function (options) {
           return new TokenError(`Token "me" didn't match any valid reference. Got: "${result.me}"`);
         }
 
-        const scopes = result.scope.split(',');
-        if (scopes.indexOf(requiredScope) === -1) {
+        const scopeMatch = [' ', ','].some(separator => result.scope.split(separator).includes(requiredScope));
+
+        if (!scopeMatch) {
           const errMessage = `Missing "${requiredScope}" scope, instead got: ${result.scope}`;
           logger.debug(errMessage);
           return new TokenScopeError(errMessage, requiredScope);

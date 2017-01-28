@@ -1,5 +1,3 @@
-/* jshint node: true */
-
 'use strict';
 
 const qs = require('querystring');
@@ -81,7 +79,7 @@ const processFormencodedBody = function (body) {
 
       while ((subKey = formEncodedKey.exec(key))) {
         if (subKey[1]) {
-          let tmp = {};
+          const tmp = {};
           tmp[subKey[1]] = value;
           value = tmp;
         } else {
@@ -113,7 +111,7 @@ const processJSONencodedBody = function (body) {
   };
 
   for (let key in body) {
-    let value = body[key];
+    const value = body[key];
 
     if (reservedProperties.indexOf(key) !== -1 || ['properties', 'type'].indexOf(key) !== -1) {
       result[key] = value;
@@ -135,11 +133,11 @@ const processJSONencodedBody = function (body) {
   return result;
 };
 
-let processFiles = function (body, files, logger) {
+const processFiles = function (body, files, logger) {
   const allResults = {};
 
   ['video', 'photo', 'audio'].forEach(type => {
-    let result = [];
+    const result = [];
 
     ([].concat(files[type] || [], files[type + '[]'] || [])).forEach(function (file) {
       if (file.truncated) {
@@ -238,7 +236,7 @@ module.exports = function (options) {
           return new TokenError(errMessage);
         }
 
-        let scopes = result.scope.split(',');
+        const scopes = result.scope.split(',');
         if (scopes.indexOf('post') === -1) {
           const errMessage = 'Missing "post" scope, instead got: ' + result.scope;
           logger.debug(errMessage);
@@ -331,7 +329,7 @@ module.exports = function (options) {
           if (!result) {
             badRequest(res, 'Query type is not supported');
           } else {
-            let defaultFormat = () => {
+            const defaultFormat = () => {
               res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
             };
 

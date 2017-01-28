@@ -1,6 +1,3 @@
-/* jshint node: true, expr: true */
-/* global beforeEach, afterEach, describe, it */
-
 'use strict';
 
 const qs = require('querystring');
@@ -24,7 +21,7 @@ describe('Micropub API', function () {
 
   let app, agent, token, tokenReference, handlerStub, queryHandlerStub;
 
-  let mockTokenEndpoint = function (code, response) {
+  const mockTokenEndpoint = function (code, response) {
     return nock('https://tokens.indieauth.com/')
       .get('/token')
       .reply(
@@ -34,7 +31,7 @@ describe('Micropub API', function () {
       );
   };
 
-  let doRequest = function (mock, done, code, content, response) {
+  const doRequest = function (mock, done, code, content, response) {
     let req = agent
       .post('/micropub')
       .set('Authorization', 'Bearer ' + token);

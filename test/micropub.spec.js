@@ -1,6 +1,3 @@
-/* jshint node: true */
-/* global describe, it */
-
 'use strict';
 
 const qs = require('querystring');

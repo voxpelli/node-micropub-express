@@ -1,3 +1,10 @@
+## 0.6.0 (2017-01-28)
+
+* **Minor breaking change:** _Spec compliance:_ Updated error responses to always use JSON bodies, previously used plain text responses
+* **Minor breaking change:** _Spec compliance:_ Uses `401` HTTP code for scope mismatches now. See #6
+* **Minor breaking change:** _Spec compliance:_ Prefers to responds to queries with JSON and does so by default. See #5
+* **Improvements:** _Spec compliance:_ Now supports, and prefers, space separated scopes. See #4
+
 ## 0.5.0 (2016-10-23)
 
 * **Breaking change:** Now requires Node v6
@@ -98,4 +105,3 @@
 #### Features
 
 * **main:** accept "like-of" documents ([4218217a](https://github.com/bloglovin/node-micropub-express/commit/4218217a9576c281d5eef3055dc9a85a9a16b9e0))
-

@@ -31,6 +31,11 @@ describe('Micropub API', function () {
       );
   };
 
+  const badRequestBody = (message) => ({
+    error: 'invalid_request',
+    error_description: message
+  });
+
   const doRequest = function (mock, done, code, content, response) {
     let req = agent
       .post('/micropub')
@@ -123,7 +128,7 @@ describe('Micropub API', function () {
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .query({ foo: 'bar' })
-        .expect(400, 'No known query parameters', function (err) {
+        .expect(400, badRequestBody('No known query parameters'), function (err) {
           mock.done();
           done(err);
         });
@@ -132,13 +137,13 @@ describe('Micropub API', function () {
     it('should require authorization', function (done) {
       agent
         .post('/micropub')
-        .expect(401, 'Missing "Authorization" header or body parameter.', done);
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), done);
     });
 
     it('should also require authorization on GET', function (done) {
       agent
         .get('/micropub')
-        .expect(401, 'Missing "Authorization" header or body parameter.', done);
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), done);
     });
   });
 
@@ -246,26 +251,26 @@ describe('Micropub API', function () {
       agent
         .post('/micropub')
         .set('Authorization', 'Bearer abc123')
-        .expect(400, 'Missing "h" value.', function (err) {
+        .expect(400, badRequestBody('Missing "h" value.'), function (err) {
           mock.done();
           done(err);
         });
     });
 
     it('should refuse update requests', function (done) {
-      doRequest(mock, done, 501, { 'mp-action': 'edit' }, 'This endpoint does not yet support updates.');
+      doRequest(mock, done, 501, { 'mp-action': 'edit' }, badRequestBody('This endpoint does not yet support updates.'));
     });
 
     it('should fail when no properties', function (done) {
       doRequest(mock, done, 400, {
         h: 'entry'
-      });
+      }, badRequestBody('Not finding any properties.'));
     });
 
     it('should require authorization', function (done) {
       agent
         .post('/micropub')
-        .expect(401, 'Missing "Authorization" header or body parameter.', function (err) {
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), function (err) {
           if (err) { return done(err); }
 
           handlerStub.should.not.have.been.called;
@@ -517,7 +522,7 @@ describe('Micropub API', function () {
         .query({ q: 'syndicate-to' })
         .set('Authorization', 'Bearer ' + token)
         .send()
-        .expect(405, 'Queries only supported with GET method', function (err) {
+        .expect(405, badRequestBody('Queries only supported with GET method'), function (err) {
           if (err) { return done(err); }
 
           queryHandlerStub.should.not.have.been.called;
@@ -541,7 +546,7 @@ describe('Micropub API', function () {
         .query({ q: 'syndicate-to' })
         .set('Authorization', 'Bearer ' + token)
         .send()
-        .expect(400, 'Queries are not supported', done);
+        .expect(400, badRequestBody('Queries are not supported'), done);
     });
 
     it('should require authorization', function (done) {
@@ -549,7 +554,7 @@ describe('Micropub API', function () {
         .get('/micropub')
         .query({ q: 'syndicate-to' })
         .send()
-        .expect(401, 'Missing "Authorization" header or body parameter.', function (err) {
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), function (err) {
           if (err) { return done(err); }
 
           queryHandlerStub.should.not.have.been.called;
@@ -576,7 +581,7 @@ describe('Micropub API', function () {
         .set('Authorization', 'Bearer ' + token)
         .query({ q: 'syndicate-to' })
         .send()
-        .expect(400, 'Query type is not supported', function (err) {
+        .expect(400, badRequestBody('Query type is not supported'), function (err) {
           if (err) { return done(err); }
 
           mock.done();

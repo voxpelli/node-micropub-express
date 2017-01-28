@@ -37,7 +37,10 @@ const queryStringEncodeWithArrayBrackets = function (data, key) {
 };
 
 const badRequest = function (res, reason, code) {
-  res.status(code || 400).set('Content-Type', 'text/plain').send(reason);
+  res.status(code || 400).json({
+    error: 'invalid_request',
+    error_description: reason
+  });
 };
 
 const normalizeUrl = function (url) {

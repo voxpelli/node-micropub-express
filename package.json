@@ -15,7 +15,7 @@
   },
   "scripts": {
     "start": "node .",
-    "mocha": "NODE_ENV=test istanbul cover _mocha -- -u exports -R spec test/**/*.spec.js",
+    "mocha": "NODE_ENV=test istanbul cover _mocha -- -u exports -R spec test/*.spec.js test/*/*.spec.js",
     "dependency-check": "JS_FILES=\"*.js test/*.js test/*/*.js\" && dependency-check . $JS_FILES && dependency-check . $JS_FILES --unused --no-dev",
     "test": "installed-check -e && eslint . && npm run dependency-check && npm run mocha",
     "prepush": "npm test"
@@ -39,7 +39,7 @@
     "sinon": "^1.15.4",
     "sinon-as-promised": "^4.0.0",
     "sinon-chai": "^2.8.0",
-    "supertest": "^2.0.0"
+    "supertest": "^3.0.0"
   },
   "dependencies": {
     "body-parser": "^1.13.1",

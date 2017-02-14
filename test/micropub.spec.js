@@ -99,7 +99,7 @@ describe('Micropub Parse', function () {
         ]
       });
 
-      qs.parse(result).should.deep.equal({
+      Object.assign({}, qs.parse(result)).should.deep.equal({
         'syndicate-to[]': [
           'foo',
           'bar'
@@ -117,7 +117,7 @@ describe('Micropub Parse', function () {
         ]
       });
 
-      qs.parse(result).should.deep.equal({
+      Object.assign({}, qs.parse(result)).should.deep.equal({
         foo: '123',
         'bar[]': 'foo',
         'bar[][abc]': ['xyc', '789']

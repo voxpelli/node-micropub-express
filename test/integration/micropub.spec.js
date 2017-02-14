@@ -134,16 +134,16 @@ describe('Micropub API', function () {
         });
     });
 
-    it('should require authorization', function (done) {
-      agent
+    it('should require authorization', () => {
+      return agent
         .post('/micropub')
-        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), done);
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'));
     });
 
-    it('should also require authorization on GET', function (done) {
-      agent
+    it('should also require authorization on GET', () => {
+      return agent
         .get('/micropub')
-        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), done);
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'));
     });
   });
 

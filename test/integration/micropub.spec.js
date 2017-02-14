@@ -179,13 +179,18 @@ describe('Micropub API', function () {
       });
     });
 
-    it('should return error on missing post scope', function (done) {
+    it('should return error on missing "create" scope', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
       doRequest(mock, done, 401, undefined, {
         error: 'insufficient_scope',
-        error_description: 'Missing "post" scope, instead got: misc',
-        scope: 'post'
+        error_description: 'Missing "create" scope, instead got: misc',
+        scope: 'create'
       });
+    });
+
+    it('should support "create" scope', function (done) {
+      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=create');
+      doRequest(mock, done);
     });
 
     it('should handle multiple scopes', function (done) {

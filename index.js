@@ -12,7 +12,7 @@ const VError = require('verror');
 const pkg = require('./package.json');
 const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
-const requiredScope = 'post';
+const requiredScope = ['create', 'post'];
 
 const formEncodedKey = /\[([^\]]*)\]$/;
 
@@ -245,12 +245,12 @@ module.exports = function (options) {
           return new TokenError(`Token "me" didn't match any valid reference. Got: "${result.me}"`);
         }
 
-        const scopeMatch = [' ', ','].some(separator => result.scope.split(separator).includes(requiredScope));
+        const scopeMatch = [' ', ','].some(separator => result.scope.split(separator).some(scope => requiredScope.includes(scope)));
 
         if (!scopeMatch) {
-          const errMessage = `Missing "${requiredScope}" scope, instead got: ${result.scope}`;
+          const errMessage = `Missing "${requiredScope[0]}" scope, instead got: ${result.scope}`;
           logger.debug(errMessage);
-          return new TokenScopeError(errMessage, requiredScope);
+          return new TokenScopeError(errMessage, requiredScope[0]);
         }
 
         return true;

@@ -1,4 +1,8 @@
-## 0.6.1 (2017-01-28)
+## 0.7.1 (2017-02-14)
+
+* **Improvements:** _Spec compliance:_ Add `create` as the default scope required, but still accept `post`.
+
+## 0.7.0 (2017-01-28)
 
 * **Improvements:** _Spec compliance:_ Always return a response to `config` queries, defaulting to a `{}` JSON body.
 

@@ -16,6 +16,8 @@ const requiredScope = ['create', 'post'];
 
 const formEncodedKey = /\[([^\]]*)\]$/;
 
+var micropub_client_id;
+
 class TokenError extends Error {}
 class TokenScopeError extends TokenError {
   constructor (message, scope) {
@@ -238,6 +240,8 @@ module.exports = function (options) {
           return new TokenError('Invalid token');
         }
 
+        micropub_client_id = result.client_id;
+
         meReferences = meReferences.map(normalizeUrl);
 
         if (meReferences.indexOf(normalizeUrl(result.me)) === -1) {
@@ -372,6 +376,7 @@ module.exports = function (options) {
     }
 
     const data = req.body;
+    data.client_id = micropub_client_id;
 
     if (!data.properties) {
       return badRequest(res, 'Not finding any properties.');

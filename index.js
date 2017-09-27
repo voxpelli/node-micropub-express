@@ -146,7 +146,7 @@ const processJSONencodedBody = function (body) {
 const processFiles = function (body, files, logger) {
   const allResults = {};
 
-  ['video', 'photo', 'audio'].forEach(type => {
+  ['video', 'photo', 'audio', 'file'].forEach(type => {
     const result = [];
 
     ([].concat(files[type] || [], files[type + '[]'] || [])).forEach(function (file) {
@@ -168,6 +168,10 @@ const processFiles = function (body, files, logger) {
 
   if (Object.getOwnPropertyNames(allResults)[0] !== undefined) {
     body.files = allResults;
+  }
+
+  if (!body.type && body.files && body.files.file && body.files.file.length === 1) {
+    body.type = 'media';
   }
 
   return body;
@@ -270,7 +274,7 @@ module.exports = function (options) {
   const storage = multer.memoryStorage();
   const upload = multer({ storage: storage });
 
-  router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(type => ({ name: type }))));
+  router.use(upload.fields(['video', 'photo', 'audio', 'file', 'video[]', 'photo[]', 'audio[]'].map(type => ({ name: type }))));
 
   // Ensure the needed parts are there
   router.use((req, res, next) => {
@@ -367,29 +371,44 @@ module.exports = function (options) {
       return badRequest(res, 'Queries only supported with GET method', 405);
     } else if (req.body.mp && req.body.mp.action) {
       return badRequest(res, 'This endpoint does not yet support updates.', 501);
+    } else if (req.body.files && req.body.files.file && !options.mediaHandler) {
+      return badRequest(res, 'This endpoint does not support the media endpoint.', 501);
     } else if (!req.body.type) {
       return badRequest(res, 'Missing "h" value.');
     }
 
-    const data = req.body;
+    if (req.body.type === 'media' && options.mediaHandler) {
+      Promise.resolve()
+        // This way the function doesn't have to return a Promise
+        .then(() => options.mediaHandler(req.body.files.file[0]))
+        .then(result => {
+          if (!result || !result.url) {
+            return res.sendStatus(400);
+          } else {
+            return res.redirect(201, result.url);
+          }
+        })
+        .catch(err => {
+          next(new VError(err, 'Error in media handling'));
+        });
+    } else {
+      const data = req.body;
 
-    if (!data.properties) {
-      return badRequest(res, 'Not finding any properties.');
+      Promise.resolve()
+        // This way the function doesn't have to return a Promise
+        .then(() => options.handler(data, req))
+        .then(result => {
+          if (!result || !result.url) {
+            return res.sendStatus(400);
+          } else {
+            return res.redirect(201, result.url);
+          }
+        })
+        .catch(err => {
+          next(new VError(err, 'Error in post handling'));
+        });
     }
 
-    Promise.resolve()
-      // This way the function doesn't have to return a Promise
-      .then(() => options.handler(data, req))
-      .then(result => {
-        if (!result || !result.url) {
-          return res.sendStatus(400);
-        } else {
-          return res.redirect(201, result.url);
-        }
-      })
-      .catch(err => {
-        next(new VError(err, 'Error in post handling'));
-      });
   });
 
   return router;

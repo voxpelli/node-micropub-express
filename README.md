@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/voxpelli/node-micropub-express.svg?branch=master)](https://travis-ci.org/voxpelli/node-micropub-express)
 [![Coverage Status](https://coveralls.io/repos/voxpelli/node-micropub-express/badge.svg)](https://coveralls.io/r/voxpelli/node-micropub-express)
 [![dependencies Status](https://david-dm.org/voxpelli/node-micropub-express/status.svg)](https://david-dm.org/voxpelli/node-micropub-express)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express?ref=badge_shield)
 
 Provides a Micropub route for Express 4.x
 
@@ -139,3 +140,7 @@ Full example:
 
 * [format-microformat](https://github.com/voxpelli/node-format-microformat) – a module that takes a `micropubDocument` as its input and then formats filenames, URL:s and file content from that data so one gets some standard data which one then can publish elsewhere – like to a Jekyll blog or something.
 * [github-publish](https://github.com/voxpelli/node-github-publish) – a module that takes a filename and content and publishes that to a GitHub repository. A useful place to send the formatted data that comes out of `format-microformat` if one wants to add it to a GitHub hosted Jekyll blog of some kind, like eg. [GitHub Pages](https://pages.github.com/).
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express?ref=badge_large)

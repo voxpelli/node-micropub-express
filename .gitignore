@@ -1,9 +1,13 @@
-# Of course we don't want to commit any of our dependencies
-/node_modules
-
-# Ignore test coverage
+# Basic ones
 /coverage
+/docs
+/node_modules
+/.env
+/.nyc_output
 
-# We're a library, so please, no yarn.lock
+# We're a library, so please, no lock files
+/package-lock.json
 /yarn.lock
-yarn-error.log
+
+# Library specific ones
+/condition-parser.js

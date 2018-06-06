@@ -3,13 +3,15 @@
 [![Build Status](https://travis-ci.org/voxpelli/node-micropub-express.svg?branch=master)](https://travis-ci.org/voxpelli/node-micropub-express)
 [![Coverage Status](https://coveralls.io/repos/voxpelli/node-micropub-express/badge.svg)](https://coveralls.io/r/voxpelli/node-micropub-express)
 [![dependencies Status](https://david-dm.org/voxpelli/node-micropub-express/status.svg)](https://david-dm.org/voxpelli/node-micropub-express)
+[![Known Vulnerabilities](https://snyk.io/test/github/voxpelli/node-micropub-express/badge.svg?targetFile=package.json)](https://snyk.io/test/github/voxpelli/node-micropub-express?targetFile=package.json)
+[![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat)](https://github.com/Flet/semistandard)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express?ref=badge_shield)
 
 Provides a Micropub route for Express 4.x
 
 ## Requirements
 
-Requires io.js or Node 0.12
+Requires at least Node.js 6.x
 
 ## Installation
 

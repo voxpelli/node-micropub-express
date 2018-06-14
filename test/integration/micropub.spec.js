@@ -8,8 +8,6 @@ const request = require('supertest');
 const sinon = require('sinon');
 const sinonChai = require('sinon-chai');
 
-require('sinon-as-promised');
-
 chai.use(chaiAsPromised);
 chai.use(sinonChai);
 chai.should();

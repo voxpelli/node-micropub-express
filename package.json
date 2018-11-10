@@ -17,7 +17,11 @@
     "mocha": "NODE_ENV=test nyc --reporter=lcov --reporter text mocha test/**/*.spec.js",
     "dependency-check": "JS_FILES=\"*.js test/*.js test/*/*.js\" && dependency-check . $JS_FILES && dependency-check . $JS_FILES --unused --no-dev",
     "test": "installed-check -e && eslint . && npm run --silent dependency-check && npm run --silent mocha",
-    "prepush": "npm test"
+  },
+  "husky": {
+    "hooks": {
+      "pre-push": "npm test"
+    }
   },
   "devDependencies": {
     "bunyan-adaptor": "1.1.0",

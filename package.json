@@ -24,7 +24,7 @@
     }
   },
   "devDependencies": {
-    "bunyan-adaptor": "1.1.0",
+    "bunyan-adaptor": "3.0.0",
     "chai": "4.2.0",
     "chai-as-promised": "7.1.1",
     "coveralls": "3.0.3",

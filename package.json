@@ -16,7 +16,7 @@
   "scripts": {
     "mocha": "NODE_ENV=test nyc --reporter=lcov --reporter text mocha test/**/*.spec.js",
     "dependency-check": "JS_FILES=\"*.js test/*.js test/*/*.js\" && dependency-check . $JS_FILES && dependency-check . $JS_FILES --unused --no-dev",
-    "test": "installed-check -e && eslint . && npm run --silent dependency-check && npm run --silent mocha"
+    "test": "installed-check -e -i eslint -i eslint-plugin-node && eslint . && npm run --silent dependency-check && npm run --silent mocha"
   },
   "husky": {
     "hooks": {
@@ -29,13 +29,13 @@
     "chai-as-promised": "7.1.1",
     "coveralls": "3.0.4",
     "dependency-check": "3.3.0",
-    "eslint": "4.19.1",
-    "eslint-config-semistandard": "12.0.1",
-    "eslint-config-standard": "11.0.0",
+    "eslint": "^5.16.0",
+    "eslint-config-semistandard": "^13.0.0",
+    "eslint-config-standard": "^12.0.0",
     "eslint-plugin-import": "2.17.3",
-    "eslint-plugin-node": "6.0.1",
+    "eslint-plugin-node": "^9.1.0",
     "eslint-plugin-promise": "4.1.1",
-    "eslint-plugin-standard": "3.1.0",
+    "eslint-plugin-standard": "^4.0.0",
     "husky": "2.4.0",
     "installed-check": "2.2.0",
     "mocha": "6.1.4",

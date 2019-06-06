@@ -48,7 +48,7 @@ describe('Micropub Parse', function () {
       }).should.deep.equal({
         type: ['h-entry'],
         properties: {
-          content: [{'html': 'hello world'}]
+          content: [{ 'html': 'hello world' }]
         }
       });
     });

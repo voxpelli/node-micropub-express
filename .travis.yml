@@ -1,9 +1,10 @@
 language: node_js
 node_js:
   - 'node'
+  - '11'
+  - '10'
   - '9'
   - '8'
-  - '6'
 sudo: false
 after_success:
   - "cat coverage/lcov.info | ./node_modules/.bin/coveralls"

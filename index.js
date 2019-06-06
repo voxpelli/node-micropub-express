@@ -1,3 +1,8 @@
+
+// @ts-check
+/// <reference types="node" />
+/// <reference types="body-parser" />
+
 'use strict';
 
 const qs = require('querystring');
@@ -12,30 +17,82 @@ const VError = require('verror');
 const pkg = require('./package.json');
 const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
-const requiredScope = ['create', 'post'];
+/** @typedef {import('bunyan-adaptor').BunyanLite} BunyanLite */
+/** @typedef {import('querystring').ParsedUrlQuery} ParsedUrlQuery */
+/** @typedef {import('express').Request} Request */
+/** @typedef {import('express').Response} Response */
+
+/**
+ * @typedef TokenReference
+ * @property {string} me
+ * @property {string} endpoint
+ */
+
+/**
+ * @typedef ParsedMicropubStructure
+ * @property {string[]} [type]
+ * @property {Object<string,any[]>} properties
+ * @property {Object<string,any[]>} mp
+ */
+
+const getBunyanAdaptor = (function () {
+  /** @type {BunyanLite} */
+  let bunyanAdaptor;
+  return () => {
+    if (!bunyanAdaptor) { bunyanAdaptor = require('bunyan-adaptor')(); }
+    return bunyanAdaptor;
+  };
+}());
+
+const requiredScope = Object.freeze(['create', 'post']);
 
 const formEncodedKey = /\[([^\]]*)\]$/;
 
 class TokenError extends Error {}
 class TokenScopeError extends TokenError {
+  /**
+   * @param {string} message
+   * @param {string} scope
+   */
   constructor (message, scope) {
     super(message);
     this.scope = scope;
   }
 }
 
-const queryStringEncodeWithArrayBrackets = function (data, key) {
+/** @typedef {string|number|boolean} BasicEncodeableTypes */
+
+/**
+ * @param {BasicEncodeableTypes|BasicEncodeableTypes[]|Object<string,any>} data
+ * @param {string} [key]
+ * @returns {string}
+ */
+const internalQueryStringEncodeWithArrayBrackets = function (data, key) {
   if (Array.isArray(data)) {
-    return data.map(item => queryStringEncodeWithArrayBrackets(item, key + '[]')).join('&');
+    return data.map(item => internalQueryStringEncodeWithArrayBrackets(item, key + '[]')).join('&');
   } else if (typeof data === 'object') {
     return Object.keys(data)
-      .map(dataKey => queryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey))
+      .map(dataKey => internalQueryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey))
+      .filter(item => !!item)
       .join('&');
-  } else {
+  } else if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
     return encodeURIComponent(key) + (data ? '=' + encodeURIComponent(data) : '');
   }
 };
 
+/**
+ * @param {Object<string,any>} data
+ * @returns {string}
+ */
+const queryStringEncodeWithArrayBrackets = function (data) {
+  return internalQueryStringEncodeWithArrayBrackets(data);
+};
+
+/**
+ * @param {Response} res
+ * @param {string} [reason]
+ * @param {number} [code]
+ */
 const badRequest = function (res, reason, code) {
   res.status(code || 400).json({
     error: 'invalid_request',
@@ -43,6 +100,10 @@ const badRequest = function (res, reason, code) {
   });
 };
 
+/**
+ * @param {string} url
+ * @returns {string}
+ */
 const normalizeUrl = function (url) {
   if (url.substr(-1) !== '/') {
     url += '/';
@@ -59,6 +120,9 @@ const reservedProperties = Object.freeze([
   'delete'
 ]);
 
+/**
+ * @param {Object<string,any>} result
+ */
 const cleanEmptyKeys = function (result) {
   for (const key in result) {
     if (typeof result[key] === 'object' && Object.getOwnPropertyNames(result[key])[0] === undefined) {
@@ -67,6 +131,10 @@ const cleanEmptyKeys = function (result) {
   }
 };
 
+/**
+ * @param {ParsedUrlQuery} body
+ * @return {ParsedMicropubStructure}
+ */
 const processFormencodedBody = function (body) {
   const result = {
     type: body.h ? ['h-' + body.h] : undefined,
@@ -80,15 +148,20 @@ const processFormencodedBody = function (body) {
   }
 
   for (let key in body) {
-    let value = body[key];
+    let rawValue = body[key];
 
     if (reservedProperties.indexOf(key) !== -1) {
-      result[key] = value;
+      result[key] = rawValue;
     } else {
-      let subKey, targetProperty;
+      /** @type {Object<string,any[]>} */
+      let targetProperty;
+      /** @type {string|string[]|Object<string,any>} */
+      let value = rawValue;
+      let subKey;
 
       while ((subKey = formEncodedKey.exec(key))) {
         if (subKey[1]) {
+          /** @type {Object<string,any>} */
           const tmp = {};
           tmp[subKey[1]] = value;
           value = tmp;
@@ -114,6 +187,10 @@ const processFormencodedBody = function (body) {
   return result;
 };
 
+/**
+ * @param {Object<string,any>} body
+ * @return {ParsedMicropubStructure}
+ */
 const processJSONencodedBody = function (body) {
   const result = {
     properties: {},
@@ -143,7 +220,16 @@ const processJSONencodedBody = function (body) {
   return result;
 };
 
+/** @typedef {{ filename: string, buffer: Buffer }[]} ProcessedFiles */
+/** @typedef {{ video?: ProcessedFiles, photo?: ProcessedFiles, audio?: ProcessedFiles }} ProcessedFilesByType */
+
+/**
+ * @template T
+ * @param {T} body
+ * @return {T & {files?: ProcessedFilesByType}}
+ */
 const processFiles = function (body, files, logger) {
+  /** @type {ProcessedFilesByType} */
   const allResults = {};
 
   ['video', 'photo', 'audio'].forEach(type => {
@@ -166,19 +252,25 @@ const processFiles = function (body, files, logger) {
     }
   });
 
-  if (Object.getOwnPropertyNames(allResults)[0] !== undefined) {
-    body.files = allResults;
-  }
-
-  return body;
+  return Object.getOwnPropertyNames(allResults)[0] !== undefined
+    ? { ...body, files: allResults }
+    : { ...body };
 };
 
+/** @typedef {(req?: Request)=>(TokenReference|Promise<TokenReference>)} TokenReferenceResolver */
+
+/**
+ * @param {Object} options
+ * @param {(data: ParsedMicropubStructure, req: Request) => (undefined|{url: string})} options.handler
+ * @param {TokenReferenceResolver|TokenReference} options.tokenReference
+ * @param {BunyanLite} [options.logger]
+ * @param {(q: string, req) => any} [options.queryHandler]
+ * @param {string} [options.userAgent]
+ */
 module.exports = function (options) {
-  options = options || {};
+  const logger = options.logger || getBunyanAdaptor();
 
-  const logger = options.logger || require('bunyan-duckling');
-
-  if (!options.tokenReference || ['function', 'object'].indexOf(typeof options.tokenReference) === -1) {
+  if (!options.tokenReference || !['function', 'object'].includes(typeof options.tokenReference)) {
     throw new Error('No correct token set. It\'s needed for authorization checks.');
   }
 
@@ -188,15 +280,20 @@ module.exports = function (options) {
 
   const userAgent = ((options.userAgent || '') + ' ' + defaultUserAgent).trim();
 
-  const tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : function () {
-    return Promise.resolve(options.tokenReference);
-  };
+  /** @type {TokenReferenceResolver}  */
+  // @ts-ignore
+  const tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : async () => options.tokenReference;
 
   // Helper functions
 
-  const matchAnyTokenReference = function (token, references) {
+  /**
+   * @param {string} token
+   * @param {TokenReference[]} references
+   * @returns {Promise<boolean|TokenError>}
+   */
+  const matchAnyTokenReference = async function (token, references) {
     if (!references || !references.length) {
-      return Promise.resolve(false);
+      return false;
     }
 
     const endpoints = {};
@@ -206,20 +303,31 @@ module.exports = function (options) {
       endpoints[reference.endpoint].push(reference.me);
     });
 
-    return Promise.all(
+    const result = await Promise.all(
       Object.keys(endpoints)
-        .map(endpoint => validateToken(token, endpoints[endpoint], endpoint))
-    )
-      .then(result =>
-        result.some(valid => valid && !(valid instanceof Error)) ||
-        result.find(valid => valid instanceof TokenScopeError) ||
-        result[0]
-      );
+        .map(endpoint =>
+          validateToken(token, endpoints[endpoint], endpoint)
+            // Turn the rejected errors into resolved errors to get all statuses returned in the Promise.all()
+            .catch(err => err)
+        )
+    );
+
+    return (
+      result.some(valid => valid === true) ||
+      result.find(valid => valid instanceof TokenScopeError) ||
+      result[0]
+    );
   };
 
-  const validateToken = function (token, meReferences, endpoint) {
+  /**
+   * @param {string} token
+   * @param {string[]} meReferences
+   * @param {string} endpoint
+   * @returns {Promise<true|TokenError>}
+   */
+  const validateToken = async function (token, meReferences, endpoint) {
     if (!token) {
-      return Promise.resolve(new TokenError('No token specified'));
+      throw new TokenError('No token specified');
     }
 
     const fetchOptions = {
@@ -230,31 +338,33 @@ module.exports = function (options) {
       }
     };
 
-    return fetch(endpoint, fetchOptions)
-      .then(response => response.text())
-      .then(body => qs.parse(body))
-      .then(result => {
-        if (!result.me || !result.scope) {
-          return new TokenError('Invalid token');
-        }
+    // @ts-ignore
+    const response = await fetch(endpoint, fetchOptions);
+    // @ts-ignore
+    const body = await response.text();
+    const result = qs.parse(body);
 
-        meReferences = meReferences.map(normalizeUrl);
+    if (!result.me || !result.scope || Array.isArray(result.me) || Array.isArray(result.scope)) {
+      throw new TokenError('Invalid token');
+    }
 
-        if (meReferences.indexOf(normalizeUrl(result.me)) === -1) {
-          logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"');
-          return new TokenError(`Token "me" didn't match any valid reference. Got: "${result.me}"`);
-        }
+    meReferences = meReferences.map(normalizeUrl);
 
-        const scopeMatch = [' ', ','].some(separator => result.scope.split(separator).some(scope => requiredScope.includes(scope)));
+    if (!meReferences.includes(normalizeUrl(result.me))) {
+      logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"');
+      throw new TokenError(`Token "me" didn't match any valid reference. Got: "${result.me}"`);
+    }
 
-        if (!scopeMatch) {
-          const errMessage = `Missing "${requiredScope[0]}" scope, instead got: ${result.scope}`;
-          logger.debug(errMessage);
-          return new TokenScopeError(errMessage, requiredScope[0]);
-        }
+    const scope = Array.isArray(result.scope) ? result.scope[0] : result.scope;
+    const scopeMatch = [' ', ','].some(separator => scope.split(separator).some(scope => requiredScope.includes(scope)));
 
-        return true;
-      });
+    if (!scopeMatch) {
+      const errMessage = `Missing "${requiredScope[0]}" scope, instead got: ${result.scope}`;
+      logger.debug(errMessage);
+      throw new TokenScopeError(errMessage, requiredScope[0]);
+    }
+
+    return true;
   };
 
   // Router setup
@@ -303,11 +413,13 @@ module.exports = function (options) {
       return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
     }
 
+    // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
     Promise.resolve()
       // This way the function doesn't have to return a Promise
       .then(() => tokenReference(req))
       .then(tokenReference => matchAnyTokenReference(token, [].concat(tokenReference)))
       .then(valid => {
+        if (valid === true) { return next(); }
         if (valid && !(valid instanceof Error)) { return next(); }
 
         if (valid instanceof TokenScopeError) {
@@ -320,7 +432,7 @@ module.exports = function (options) {
 
         res.status(403).json({
           error: 'forbidden',
-          error_description: (valid || {}).message || undefined
+          error_description: valid ? valid.message : undefined
         });
       })
       .catch(err => {
@@ -338,6 +450,7 @@ module.exports = function (options) {
         return req.query.q === 'config' ? res.json({}) : badRequest(res, 'Queries are not supported');
       }
 
+      // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
       Promise.resolve()
         // This way the function doesn't have to return a Promise
         .then(() => options.queryHandler(req.query.q, req))
@@ -377,6 +490,7 @@ module.exports = function (options) {
       return badRequest(res, 'Not finding any properties.');
     }
 
+    // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
     Promise.resolve()
       // This way the function doesn't have to return a Promise
       .then(() => options.handler(data, req))

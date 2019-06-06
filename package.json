@@ -15,8 +15,8 @@
   },
   "scripts": {
     "mocha": "NODE_ENV=test nyc --reporter=lcov --reporter text mocha test/**/*.spec.js",
-    "dependency-check": "JS_FILES=\"*.js test/*.js test/*/*.js\" && dependency-check . $JS_FILES && dependency-check . $JS_FILES --unused --no-dev",
-    "test": "installed-check -e -i eslint -i eslint-plugin-node && eslint . && npm run --silent dependency-check && npm run --silent mocha"
+    "dependency-check": "JS_FILES=\"*.js test/*.js test/*/*.js\" && dependency-check . $JS_FILES && dependency-check . $JS_FILES --unused --no-dev -i @types/express -i @types/multer",
+    "test": "installed-check -e -i eslint -i eslint-plugin-node && eslint . && npm run --silent dependency-check && npm run --silent mocha && tsc"
   },
   "husky": {
     "hooks": {
@@ -24,7 +24,8 @@
     }
   },
   "devDependencies": {
-    "bunyan-adaptor": "3.0.0",
+    "@types/body-parser": "^1.17.0",
+    "@types/node": "^8.0.0",
     "chai": "4.2.0",
     "chai-as-promised": "7.1.1",
     "coveralls": "3.0.4",
@@ -43,11 +44,14 @@
     "nyc": "14.1.1",
     "sinon": "7.3.2",
     "sinon-chai": "3.3.0",
-    "supertest": "4.0.2"
+    "supertest": "4.0.2",
+    "typescript": "^3.5.1"
   },
   "dependencies": {
+    "@types/express": "^4.17.0",
+    "@types/multer": "^1.3.7",
     "body-parser": "^1.13.1",
-    "bunyan-duckling": "^1.0.1",
+    "bunyan-adaptor": "^3.0.0",
     "express": "^4.13.0",
     "multer": "^1.0.1",
     "node-fetch": "^1.3.0",

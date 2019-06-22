@@ -135,7 +135,7 @@ const cleanEmptyKeys = function (result) {
  * @param {ParsedUrlQuery} body
  * @return {ParsedMicropubStructure}
  */
-const processFormencodedBody = function (body) {
+const processFormEncodedBody = function (body) {
   const result = {
     type: body.h ? ['h-' + body.h] : undefined,
     properties: {},
@@ -191,7 +191,7 @@ const processFormencodedBody = function (body) {
  * @param {Object<string,any>} body
  * @return {ParsedMicropubStructure}
  */
-const processJSONencodedBody = function (body) {
+const processJsonEncodedBody = function (body) {
   const result = {
     properties: {},
     mp: {}
@@ -388,9 +388,9 @@ module.exports = function (options) {
 
     if (req.body) {
       if (req.is('json')) {
-        req.body = processJSONencodedBody(req.body);
+        req.body = processJsonEncodedBody(req.body);
       } else {
-        req.body = processFormencodedBody(req.body);
+        req.body = processFormEncodedBody(req.body);
       }
     }
 
@@ -436,7 +436,7 @@ module.exports = function (options) {
         });
       })
       .catch(err => {
-        logger.debug(err, 'An error occured when trying to validate token');
+        logger.debug(err, 'An error occurred when trying to validate token');
         next(new VError(err, "Couldn't validate token"));
       });
   });
@@ -509,6 +509,6 @@ module.exports = function (options) {
   return router;
 };
 
-module.exports.processFormencodedBody = processFormencodedBody;
-module.exports.processJSONencodedBody = processJSONencodedBody;
+module.exports.processFormEncodedBody = processFormEncodedBody;
+module.exports.processJsonEncodedBody = processJsonEncodedBody;
 module.exports.queryStringEncodeWithArrayBrackets = queryStringEncodeWithArrayBrackets;

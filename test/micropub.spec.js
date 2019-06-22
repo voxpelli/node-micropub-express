@@ -10,9 +10,9 @@ chai.should();
 describe('Micropub Parse', function () {
   const micropub = require('../');
 
-  describe('Formencoded Body', function () {
+  describe('Form Encoded Body', function () {
     it('should be correctly parsed', function () {
-      micropub.processFormencodedBody({
+      micropub.processFormEncodedBody({
         h: 'entry',
         content: 'hello world',
         'mp-syndicate-to': 'http://twitter.com/voxpelli'
@@ -28,7 +28,7 @@ describe('Micropub Parse', function () {
     });
 
     it('should handle array properties', function () {
-      micropub.processFormencodedBody({
+      micropub.processFormEncodedBody({
         h: 'entry',
         content: 'hello world',
         'category[]': ['foo', 'bar']
@@ -42,7 +42,7 @@ describe('Micropub Parse', function () {
     });
 
     it('should handle object properties', function () {
-      micropub.processFormencodedBody({
+      micropub.processFormEncodedBody({
         h: 'entry',
         'content[html]': 'hello world'
       }).should.deep.equal({
@@ -56,7 +56,7 @@ describe('Micropub Parse', function () {
 
   describe('JSON-encoded Body', function () {
     it('should be correctly parsed', function () {
-      micropub.processJSONencodedBody({
+      micropub.processJsonEncodedBody({
         type: ['h-entry'],
         'mp-action': 'edit',
         properties: {
@@ -74,7 +74,7 @@ describe('Micropub Parse', function () {
     });
 
     it('should convert URL-property to top-level property', function () {
-      micropub.processJSONencodedBody({
+      micropub.processJsonEncodedBody({
         type: ['h-entry'],
         properties: {
           content: ['hello world'],
@@ -90,7 +90,7 @@ describe('Micropub Parse', function () {
     });
   });
 
-  describe('Formencoded Response', function () {
+  describe('Form Encoded Response', function () {
     it('should be correctly formatted', function () {
       const result = micropub.queryStringEncodeWithArrayBrackets({
         'syndicate-to': [

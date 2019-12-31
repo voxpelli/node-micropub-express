@@ -41,11 +41,13 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
  */
 
 /**
- * @typedef ParsedMicropubStructure
+ * @typedef MinimalParsedMicropubStructure
  * @property {string[]|undefined} [type]
  * @property {Object<string,any[]>} properties
  * @property {Object<string,any[]>} mp
  */
+
+/** @typedef {MinimalParsedMicropubStructure & { [reservedPropertyName: string]: any }} ParsedMicropubStructure */
 
 /**
  * @template T
@@ -159,6 +161,7 @@ const cleanEmptyKeys = function (result) {
  * @returns {ParsedMicropubStructure}
  */
 const processFormEncodedBody = function (body) {
+  /** @type {ParsedMicropubStructure} */
   const result = {
     type: body.h ? ['h-' + body.h] : undefined,
     properties: {},
@@ -172,7 +175,7 @@ const processFormEncodedBody = function (body) {
   for (let key in body) {
     const rawValue = body[key];
 
-    if (reservedProperties.indexOf(key) !== -1) {
+    if (reservedProperties.includes(key)) {
       result[key] = rawValue;
     } else {
       /** @type {Object<string,any[]>} */
@@ -193,7 +196,7 @@ const processFormEncodedBody = function (body) {
         key = key.slice(0, subKey.index);
       }
 
-      if (key.indexOf('mp-') === 0) {
+      if (key.startsWith('mp-')) {
         key = key.substr(3);
         targetProperty = result.mp;
       } else {
@@ -214,6 +217,7 @@ const processFormEncodedBody = function (body) {
  * @returns {ParsedMicropubStructure}
  */
 const processJsonEncodedBody = function (body) {
+  /** @type {ParsedMicropubStructure} */
   const result = {
     properties: {},
     mp: {}
@@ -222,16 +226,16 @@ const processJsonEncodedBody = function (body) {
   for (let key in body) {
     const value = body[key];
 
-    if (reservedProperties.indexOf(key) !== -1 || ['properties', 'type'].indexOf(key) !== -1) {
+    if (reservedProperties.includes(key) || ['properties', 'type'].includes(key)) {
       result[key] = value;
-    } else if (key.indexOf('mp-') === 0) {
+    } else if (key.startsWith('mp-')) {
       key = key.substr(3);
       result.mp[key] = [].concat(value);
     }
   }
 
   for (const key in body.properties) {
-    if (['url'].indexOf(key) !== -1) {
+    if (['url'].includes(key)) {
       result[key] = result[key] || [].concat(body.properties[key])[0];
       delete body.properties[key];
     }
@@ -244,25 +248,26 @@ const processJsonEncodedBody = function (body) {
 
 /**
  * @template T
- * @typedef ByFileType
+ * @typedef FilesByType
  * @property {T[]} [audio]
  * @property {T[]} [photo]
  * @property {T[]} [video]
  */
-/** @typedef {{ filename: string, buffer: Buffer }} ProcessedFiles */
+/** @typedef {{ filename: string, buffer: Buffer }} ProcessedFile */
 
 /**
  * @template T
  * @param {T} body
- * @param {ByFileType<MulterFile>} files
+ * @param {{ [type: string]: MulterFile[] }} files
  * @param {BunyanLite} logger
- * @returns {T & {files?: ByFileType<ProcessedFiles>}}
+ * @returns {T & {files?: FilesByType<ProcessedFile>}}
  */
 const processFiles = function (body, files, logger) {
-  /** @type {ByFileType<ProcessedFiles>} */
+  /** @type {FilesByType<ProcessedFile>} */
   const allResults = {};
 
-  ['video', 'photo', 'audio'].forEach(type => {
+  for (const type of ['video', 'photo', 'audio']) {
+    /** @type {ProcessedFile[]} */
     const result = [];
     const typeFiles = [...(files[type] || []), ...(files[type + '[]'] || [])];
 
@@ -279,9 +284,10 @@ const processFiles = function (body, files, logger) {
     });
 
     if (result.length) {
+      // @ts-ignore
       allResults[type] = result;
     }
-  });
+  }
 
   return Object.getOwnPropertyNames(allResults)[0] !== undefined
     ? { ...body, files: allResults }
@@ -289,13 +295,14 @@ const processFiles = function (body, files, logger) {
 };
 
 /** @typedef {(req?: Request)=>(MaybePromised<MaybeArray<TokenReference>>)} TokenReferenceResolver */
+/** @typedef {TokenReferenceResolver|MaybeArray<TokenReference>} TokenReferenceOption */
 
 /**
  * @param {Object} options
  * @param {(data: ParsedMicropubStructure, req: Request) => (undefined|{url: string})} options.handler
- * @param {TokenReferenceResolver|MaybeArray<TokenReference>} options.tokenReference
+ * @param {TokenReferenceOption} options.tokenReference
  * @param {BunyanLite} [options.logger]
- * @param {(q: string, req) => any} [options.queryHandler]
+ * @param {(q: string, req: Request) => any} [options.queryHandler]
  * @param {string} [options.userAgent]
  * @returns {Router}
  */
@@ -328,6 +335,7 @@ module.exports = function (options) {
       return false;
     }
 
+    /** @type {{ [endpoint: string]: string[] }} */
     const endpoints = {};
 
     references.forEach(reference => {
@@ -374,24 +382,23 @@ module.exports = function (options) {
     const response = await fetch(endpoint, fetchOptions);
     // @ts-ignore
     const body = await response.text();
-    const result = qs.parse(body);
+    const { me, scope } = qs.parse(body) || {};
 
-    if (!result.me || !result.scope || Array.isArray(result.me) || Array.isArray(result.scope)) {
+    if (!me || !scope || Array.isArray(me) || Array.isArray(scope)) {
       throw new TokenError('Invalid token');
     }
 
     meReferences = meReferences.map(normalizeUrl);
 
-    if (!meReferences.includes(normalizeUrl(result.me))) {
-      logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + result.me + '"');
-      throw new TokenError(`Token "me" didn't match any valid reference. Got: "${result.me}"`);
+    if (!meReferences.includes(normalizeUrl(me))) {
+      logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + me + '"');
+      throw new TokenError(`Token "me" didn't match any valid reference. Got: "${me}"`);
     }
 
-    const scope = Array.isArray(result.scope) ? result.scope[0] : result.scope;
     const scopeMatch = [' ', ','].some(separator => scope.split(separator).some(scope => requiredScope.includes(scope)));
 
     if (!scopeMatch) {
-      const errMessage = `Missing "${requiredScope[0]}" scope, instead got: ${result.scope}`;
+      const errMessage = `Missing "${requiredScope[0]}" scope, instead got: ${scope}`;
       logger.debug(errMessage);
       throw new TokenScopeError(errMessage, requiredScope[0]);
     }
@@ -432,15 +439,18 @@ module.exports = function (options) {
 
     logger.debug({ body: req.body }, 'Processed a request');
 
-    let token;
+    /** @type {string|undefined} */
+    const token = (
+      req.headers.authorization
+        ? req.headers.authorization.trim().split(/\s+/)[1]
+        : (
+          req.body && req.body.access_token
+            ? req.body.access_token
+            : undefined
+        )
+    );
 
-    if (req.headers.authorization) {
-      token = req.headers.authorization.trim().split(/\s+/)[1];
-    } else if (!token && req.body && req.body.access_token) {
-      token = req.body.access_token;
-    }
-
-    if (!token) {
+    if (token === undefined || !token) {
       logger.debug('Got a request with a missing token');
       return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
     }

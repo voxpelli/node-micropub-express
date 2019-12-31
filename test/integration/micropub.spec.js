@@ -5,6 +5,12 @@
 
 'use strict';
 
+/** @typedef {import('mocha').Done} MochaDone */
+/** @typedef {import('nock').Scope} NockScope */
+/** @typedef {import('sinon').SinonStub} SinonStub */
+/** @typedef {import('supertest').Test} SuperTestTest */
+/** @typedef {import('supertest').SuperTest<SuperTestTest>} SuperTestAgent */
+
 const qs = require('querystring');
 const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
@@ -22,8 +28,23 @@ describe('Micropub API', function () {
   const express = require('express');
   const micropub = require('../../');
 
-  let app, agent, token, tokenReference, handlerStub, queryHandlerStub;
+  let app;
+  /** @type {SuperTestAgent} */
+  let agent;
+  /** @type {string} */
+  let token;
+  /** @type {import('../../').TokenReferenceOption} */
+  let tokenReference;
+  /** @type {SinonStub} */
+  let handlerStub;
+  /** @type {SinonStub} */
+  let queryHandlerStub;
 
+  /**
+   * @param {number} code
+   * @param {string} response
+   * @returns {NockScope}
+   */
   const mockTokenEndpoint = function (code, response) {
     return nock('https://tokens.indieauth.com/')
       .get('/token')
@@ -34,11 +55,24 @@ describe('Micropub API', function () {
       );
   };
 
+  /**
+   * @template {string} T
+   * @param {T} message
+   * @returns {{ error: 'invalid_request', error_description: T }}
+   */
   const badRequestBody = (message) => ({
     error: 'invalid_request',
     error_description: message
   });
 
+  /**
+   * @param {undefined|false} [mock]
+   * @param {undefined|false} [done]
+   * @param {number} [code]
+   * @param {string|Object<string,any>|((req: SuperTestTest) => string|Object<string,any>)} [content]
+   * @param {*} [response]
+   * @returns {SuperTestTest}
+   */
   const doRequest = function (mock, done, code, content, response) {
     let req = agent
       .post('/micropub')
@@ -61,9 +95,18 @@ describe('Micropub API', function () {
       req = req.expect(code || 201);
     }
 
-    if (!done) {
-      return req;
-    }
+    return req;
+  };
+
+  /**
+   * @param {NockScope} [mock]
+   * @param {MochaDone} done
+   * @param {number} [code]
+   * @param {*} [content]
+   * @param {*} [response]
+   */
+  const asyncRequest = function (mock, done, code, content, response) {
+    const req = doRequest(undefined, undefined, code, content, response);
 
     req.end(function (err) {
       if (err) { return done(err); }
@@ -110,6 +153,7 @@ describe('Micropub API', function () {
   });
 
   describe('basics', function () {
+    /** @type {NockScope} */
     let mock;
 
     beforeEach(function () {
@@ -163,12 +207,12 @@ describe('Micropub API', function () {
           { 'Content-Type': 'application/x-www-form-urlencoded' }
         );
 
-      doRequest(mock, done);
+      asyncRequest(mock, done);
     });
 
     it('should return error on invalid token', function (done) {
       const mock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
-      doRequest(mock, done, 403, undefined, {
+      asyncRequest(mock, done, 403, undefined, {
         error: 'forbidden',
         error_description: 'Invalid token'
       });
@@ -176,7 +220,7 @@ describe('Micropub API', function () {
 
     it('should return error on mismatching me', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
-      doRequest(mock, done, 403, undefined, {
+      asyncRequest(mock, done, 403, undefined, {
         error: 'forbidden',
         error_description: 'Token "me" didn\'t match any valid reference. Got: "http://voxpelli.com/"'
       });
@@ -184,7 +228,7 @@ describe('Micropub API', function () {
 
     it('should return error on missing "create" scope', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
-      doRequest(mock, done, 401, undefined, {
+      asyncRequest(mock, done, 401, undefined, {
         error: 'insufficient_scope',
         error_description: 'Missing "create" scope, instead got: misc',
         scope: 'create'
@@ -193,17 +237,17 @@ describe('Micropub API', function () {
 
     it('should support "create" scope', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=create');
-      doRequest(mock, done);
+      asyncRequest(mock, done);
     });
 
     it('should handle multiple scopes', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
-      doRequest(mock, done);
+      asyncRequest(mock, done);
     });
 
     it('should handle space-separated scopes', function (done) {
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post%20misc');
-      doRequest(mock, done);
+      asyncRequest(mock, done);
     });
 
     it('should handle multiple token references', function (done) {
@@ -223,7 +267,7 @@ describe('Micropub API', function () {
 
       const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fexample.com%2F&scope=post,misc');
 
-      doRequest(mock, done);
+      asyncRequest(mock, done);
     });
 
     it('should use custom user agent', function (done) {
@@ -249,11 +293,12 @@ describe('Micropub API', function () {
           { 'Content-Type': 'application/x-www-form-urlencoded' }
         );
 
-      doRequest(mock, done);
+      asyncRequest(mock, done);
     });
   });
 
   describe('create', function () {
+    /** @type {NockScope} */
     let mock;
 
     beforeEach(function () {
@@ -271,11 +316,11 @@ describe('Micropub API', function () {
     });
 
     it('should refuse update requests', function (done) {
-      doRequest(mock, done, 501, { 'mp-action': 'edit' }, badRequestBody('This endpoint does not yet support updates.'));
+      asyncRequest(mock, done, 501, { 'mp-action': 'edit' }, badRequestBody('This endpoint does not yet support updates.'));
     });
 
     it('should fail when no properties', function (done) {
-      doRequest(mock, done, 400, {
+      asyncRequest(mock, done, 400, {
         h: 'entry'
       }, badRequestBody('Not finding any properties.'));
     });
@@ -523,6 +568,7 @@ describe('Micropub API', function () {
   });
 
   describe('query', function () {
+    /** @type {NockScope} */
     let mock;
 
     beforeEach(function () {

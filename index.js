@@ -21,6 +21,10 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
 /** @typedef {import('querystring').ParsedUrlQuery} ParsedUrlQuery */
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
+/** @typedef {import('express').Router} Router */
+
+// TODO: Figure out how to import this definition from https://github.com/DefinitelyTyped/DefinitelyTyped/blob/03fddd7a3f2322433a867d9edcee561ac85d950d/types/multer/index.d.ts#L103-L124
+/** @typedef {*} MulterFile */
 
 /**
  * @typedef TokenReference
@@ -133,7 +137,7 @@ const cleanEmptyKeys = function (result) {
 
 /**
  * @param {ParsedUrlQuery} body
- * @return {ParsedMicropubStructure}
+ * @returns {ParsedMicropubStructure}
  */
 const processFormEncodedBody = function (body) {
   const result = {
@@ -148,7 +152,7 @@ const processFormEncodedBody = function (body) {
   }
 
   for (let key in body) {
-    let rawValue = body[key];
+    const rawValue = body[key];
 
     if (reservedProperties.indexOf(key) !== -1) {
       result[key] = rawValue;
@@ -189,7 +193,7 @@ const processFormEncodedBody = function (body) {
 
 /**
  * @param {Object<string,any>} body
- * @return {ParsedMicropubStructure}
+ * @returns {ParsedMicropubStructure}
  */
 const processJsonEncodedBody = function (body) {
   const result = {
@@ -208,7 +212,7 @@ const processJsonEncodedBody = function (body) {
     }
   }
 
-  for (let key in body.properties) {
+  for (const key in body.properties) {
     if (['url'].indexOf(key) !== -1) {
       result[key] = result[key] || [].concat(body.properties[key])[0];
       delete body.properties[key];
@@ -220,16 +224,24 @@ const processJsonEncodedBody = function (body) {
   return result;
 };
 
-/** @typedef {{ filename: string, buffer: Buffer }[]} ProcessedFiles */
-/** @typedef {{ video?: ProcessedFiles, photo?: ProcessedFiles, audio?: ProcessedFiles }} ProcessedFilesByType */
+/**
+ * @template T
+ * @typedef ByFileType
+ * @property {T[]} [audio]
+ * @property {T[]} [photo]
+ * @property {T[]} [video]
+ */
+/** @typedef {{ filename: string, buffer: Buffer }} ProcessedFiles */
 
 /**
  * @template T
  * @param {T} body
- * @return {T & {files?: ProcessedFilesByType}}
+ * @param {ByFileType<MulterFile>} files
+ * @param {BunyanLite} logger
+ * @returns {T & {files?: ByFileType<ProcessedFiles>}}
  */
 const processFiles = function (body, files, logger) {
-  /** @type {ProcessedFilesByType} */
+  /** @type {ByFileType<ProcessedFiles>} */
   const allResults = {};
 
   ['video', 'photo', 'audio'].forEach(type => {
@@ -266,6 +278,7 @@ const processFiles = function (body, files, logger) {
  * @param {BunyanLite} [options.logger]
  * @param {(q: string, req) => any} [options.queryHandler]
  * @param {string} [options.userAgent]
+ * @returns {Router}
  */
 module.exports = function (options) {
   const logger = options.logger || getBunyanAdaptor();
@@ -332,7 +345,7 @@ module.exports = function (options) {
 
     const fetchOptions = {
       headers: {
-        'Authorization': 'Bearer ' + token,
+        Authorization: 'Bearer ' + token,
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': userAgent
       }
@@ -394,7 +407,7 @@ module.exports = function (options) {
       }
     }
 
-    if (req.files && Object.getOwnPropertyNames(req.files)[0]) {
+    if (req.files && !Array.isArray(req.files) && Object.getOwnPropertyNames(req.files)[0]) {
       req.body = processFiles(req.body, req.files, logger);
     }
 
@@ -464,7 +477,7 @@ module.exports = function (options) {
             'application/x-www-form-urlencoded': () => {
               res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
             },
-            'default': () => { res.json(result); }
+            default: () => { res.json(result); }
           });
         })
         .catch(err => {

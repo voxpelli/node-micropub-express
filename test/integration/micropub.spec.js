@@ -363,7 +363,7 @@ describe('Micropub API', function () {
           handlerStub.firstCall.args[0].should.deep.equal({
             type: ['h-entry'],
             properties: {
-              'foo': ['123']
+              foo: ['123']
             }
           });
           handlerStub.firstCall.args[1].should.be.an('object');

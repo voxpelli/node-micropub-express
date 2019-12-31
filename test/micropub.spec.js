@@ -1,3 +1,8 @@
+// @ts-check
+/// <reference types="node" />
+/// <reference types="mocha" />
+/// <reference types="chai" />
+
 'use strict';
 
 const qs = require('querystring');
@@ -5,7 +10,8 @@ const chai = require('chai');
 const chaiAsPromised = require('chai-as-promised');
 
 chai.use(chaiAsPromised);
-chai.should();
+
+const should = chai.should();
 
 describe('Micropub Parse', function () {
   const micropub = require('../');
@@ -110,6 +116,9 @@ describe('Micropub Parse', function () {
     it('should format complex variants', function () {
       const result = micropub.queryStringEncodeWithArrayBrackets({
         foo: 123,
+        abc: true,
+        xyz: null,
+        def: undefined,
         bar: [
           'foo',
           { abc: 'xyc' },
@@ -119,9 +128,26 @@ describe('Micropub Parse', function () {
 
       Object.assign({}, qs.parse(result)).should.deep.equal({
         foo: '123',
+        abc: 'true',
+        xyz: '',
         'bar[]': 'foo',
         'bar[][abc]': ['xyc', '789']
       });
+    });
+
+    it('should throw on invalid data value', function () {
+      should.Throw(
+        () => {
+          micropub.queryStringEncodeWithArrayBrackets({
+            'syndicate-to': [
+              'foo',
+              () => {}
+            ]
+          });
+        },
+        TypeError,
+        'Invalid data type encountered: function'
+      );
     });
   });
 });

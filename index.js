@@ -1,4 +1,3 @@
-
 // @ts-check
 /// <reference types="node" />
 /// <reference types="body-parser" />
@@ -27,6 +26,15 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
 /** @typedef {*} MulterFile */
 
 /**
+ * @template T
+ * @typedef {T|T[]} MaybeArray
+ */
+/**
+ * @template T
+ * @typedef {T|Promise<T>} MaybePromised
+ */
+
+/**
  * @typedef TokenReference
  * @property {string} me
  * @property {string} endpoint
@@ -34,10 +42,17 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
 
 /**
  * @typedef ParsedMicropubStructure
- * @property {string[]} [type]
+ * @property {string[]|undefined} [type]
  * @property {Object<string,any[]>} properties
  * @property {Object<string,any[]>} mp
  */
+
+/**
+ * @template T
+ * @param {MaybeArray<T>} value
+ * @returns {T[]}
+ */
+const ensureArrayAndCloneIt = (value) => Array.isArray(value) ? [...value] : [value];
 
 const getBunyanAdaptor = (function () {
   /** @type {BunyanLite} */
@@ -74,13 +89,17 @@ class TokenScopeError extends TokenError {
 const internalQueryStringEncodeWithArrayBrackets = function (data, key) {
   if (Array.isArray(data)) {
     return data.map(item => internalQueryStringEncodeWithArrayBrackets(item, key + '[]')).join('&');
-  } else if (typeof data === 'object') {
+  } else if (typeof data === 'object' && data !== null) {
     return Object.keys(data)
       .map(dataKey => internalQueryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey))
       .filter(item => !!item)
       .join('&');
-  } else if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean') {
+  } else if (!key || typeof data === 'undefined') {
+    return '';
+  } else if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean' || data === null) {
     return encodeURIComponent(key) + (data ? '=' + encodeURIComponent(data) : '');
+  } else {
+    throw new TypeError(`Invalid data type encountered: ${typeof data}`);
   }
 };
 
@@ -147,7 +166,6 @@ const processFormEncodedBody = function (body) {
   };
 
   if (body.h) {
-    result.type = ['h-' + body.h];
     delete body.h;
   }
 
@@ -170,7 +188,7 @@ const processFormEncodedBody = function (body) {
           tmp[subKey[1]] = value;
           value = tmp;
         } else {
-          value = [].concat(value);
+          value = ensureArrayAndCloneIt(value);
         }
         key = key.slice(0, subKey.index);
       }
@@ -182,7 +200,7 @@ const processFormEncodedBody = function (body) {
         targetProperty = result.properties;
       }
 
-      targetProperty[key] = [].concat(value);
+      targetProperty[key] = ensureArrayAndCloneIt(value);
     }
   }
 
@@ -246,8 +264,9 @@ const processFiles = function (body, files, logger) {
 
   ['video', 'photo', 'audio'].forEach(type => {
     const result = [];
+    const typeFiles = [...(files[type] || []), ...(files[type + '[]'] || [])];
 
-    ([].concat(files[type] || [], files[type + '[]'] || [])).forEach(function (file) {
+    typeFiles.forEach(file => {
       if (file.truncated) {
         logger.warn('File was truncated');
         return;
@@ -269,12 +288,12 @@ const processFiles = function (body, files, logger) {
     : { ...body };
 };
 
-/** @typedef {(req?: Request)=>(TokenReference|Promise<TokenReference>)} TokenReferenceResolver */
+/** @typedef {(req?: Request)=>(MaybePromised<MaybeArray<TokenReference>>)} TokenReferenceResolver */
 
 /**
  * @param {Object} options
  * @param {(data: ParsedMicropubStructure, req: Request) => (undefined|{url: string})} options.handler
- * @param {TokenReferenceResolver|TokenReference} options.tokenReference
+ * @param {TokenReferenceResolver|MaybeArray<TokenReference>} options.tokenReference
  * @param {BunyanLite} [options.logger]
  * @param {(q: string, req) => any} [options.queryHandler]
  * @param {string} [options.userAgent]
@@ -426,12 +445,15 @@ module.exports = function (options) {
       return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
     }
 
+    logger.debug('Found authorization token');
+
     // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
     Promise.resolve()
-      // This way the function doesn't have to return a Promise
-      .then(() => tokenReference(req))
-      .then(tokenReference => matchAnyTokenReference(token, [].concat(tokenReference)))
-      .then(valid => {
+      .then(async () => {
+        const resolvedTokenReference = await tokenReference(req);
+
+        const valid = await matchAnyTokenReference(token, ensureArrayAndCloneIt(resolvedTokenReference));
+
         if (valid === true) { return next(); }
         if (valid && !(valid instanceof Error)) { return next(); }
 
@@ -465,9 +487,9 @@ module.exports = function (options) {
 
       // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
       Promise.resolve()
-        // This way the function doesn't have to return a Promise
-        .then(() => options.queryHandler(req.query.q, req))
-        .then(result => {
+        .then(async () => {
+          const result = await options.queryHandler(req.query.q, req);
+
           if (!result) {
             return req.query.q === 'config' ? res.json({}) : badRequest(res, 'Query type is not supported');
           }
@@ -505,14 +527,14 @@ module.exports = function (options) {
 
     // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
     Promise.resolve()
-      // This way the function doesn't have to return a Promise
-      .then(() => options.handler(data, req))
-      .then(result => {
+      .then(async () => {
+        const result = await options.handler(data, req);
+
         if (!result || !result.url) {
           return res.sendStatus(400);
-        } else {
-          return res.redirect(201, result.url);
         }
+
+        return res.redirect(201, result.url);
       })
       .catch(err => {
         next(new VError(err, 'Error in post handling'));

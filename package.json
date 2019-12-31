@@ -18,7 +18,7 @@
     "check:installed-check": "installed-check -i eslint",
     "check:lint": "eslint .",
     "check:tsc": "tsc",
-    "test:mocha": "nyc --reporter=lcov --reporter text mocha test/**/*.spec.js",
+    "test:mocha": "nyc --reporter=lcov --reporter text mocha 'test/**/*.spec.js'",
     "test": "run-p check:* && run-p test:*"
   },
   "husky": {
@@ -28,7 +28,13 @@
   },
   "devDependencies": {
     "@types/body-parser": "^1.17.0",
+    "@types/chai": "^4.2.7",
+    "@types/chai-as-promised": "^7.1.2",
+    "@types/mocha": "^5.2.7",
     "@types/node": "^10.0.0",
+    "@types/sinon": "^7.5.1",
+    "@types/sinon-chai": "^3.2.3",
+    "@types/supertest": "^2.0.8",
     "@voxpelli/eslint-config": "^1.0.0",
     "chai": "4.2.0",
     "chai-as-promised": "7.1.1",

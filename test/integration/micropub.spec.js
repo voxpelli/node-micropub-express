@@ -1,3 +1,8 @@
+// @ts-check
+/// <reference types="node" />
+/// <reference types="mocha" />
+/// <reference types="chai" />
+
 'use strict';
 
 const qs = require('querystring');
@@ -148,9 +153,9 @@ describe('Micropub API', function () {
   describe('auth', function () {
     it('should call handler and return 201 on successful request', function (done) {
       const mock = nock('https://tokens.indieauth.com/')
-        .matchHeader('Authorization', function (val) { return val && val[0] === 'Bearer ' + token; })
-        .matchHeader('Content-Type', function (val) { return val && val[0] === 'application/x-www-form-urlencoded'; })
-        .matchHeader('User-Agent', function (val) { return val && /^micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val); })
+        .matchHeader('Authorization', function (val) { return !!(val && val[0] === 'Bearer ' + token); })
+        .matchHeader('Content-Type', function (val) { return !!(val && val[0] === 'application/x-www-form-urlencoded'); })
+        .matchHeader('User-Agent', function (val) { return !!(val && /^micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val)); })
         .get('/token')
         .reply(
           200,
@@ -236,7 +241,7 @@ describe('Micropub API', function () {
       agent = request.agent(app);
 
       const mock = nock('https://tokens.indieauth.com/')
-        .matchHeader('User-Agent', function (val) { return val && /^foobar\/1\.0 micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val); })
+        .matchHeader('User-Agent', function (val) { return !!(val && /^foobar\/1\.0 micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val)); })
         .get('/token')
         .reply(
           200,

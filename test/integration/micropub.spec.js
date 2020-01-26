@@ -142,7 +142,7 @@ describe('Micropub API', function () {
       logger: customLogger,
       handler: handlerStub,
       queryHandler: queryHandlerStub,
-      tokenReference: tokenReference
+      tokenReference
     }));
 
     agent = request.agent(app);
@@ -595,7 +595,7 @@ describe('Micropub API', function () {
       app.use('/micropub', micropub({
         logger: customLogger,
         handler: handlerStub,
-        tokenReference: tokenReference
+        tokenReference
       }));
 
       agent = request.agent(app);
@@ -630,7 +630,7 @@ describe('Micropub API', function () {
         logger: customLogger,
         handler: handlerStub,
         queryHandler: queryHandlerStub,
-        tokenReference: tokenReference
+        tokenReference
       }));
 
       agent = request.agent(app);
@@ -658,7 +658,7 @@ describe('Micropub API', function () {
       app.use('/micropub', micropub({
         logger: customLogger,
         handler: handlerStub,
-        tokenReference: tokenReference
+        tokenReference
       }));
 
       return request(app)
@@ -677,7 +677,7 @@ describe('Micropub API', function () {
         logger: customLogger,
         handler: handlerStub,
         queryHandler: queryHandlerStub,
-        tokenReference: tokenReference
+        tokenReference
       }));
 
       return request(app)

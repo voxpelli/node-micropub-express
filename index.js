@@ -417,7 +417,7 @@ module.exports = function (options) {
   router.use(bodyParser.json());
 
   const storage = multer.memoryStorage();
-  const upload = multer({ storage: storage });
+  const upload = multer({ storage });
 
   router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(type => ({ name: type }))));
 

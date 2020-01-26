@@ -18,8 +18,7 @@ jobs:
       with:
         node-version: ${{ matrix.node_version }}
     - run: npm install
-    - run: npm run build
-    - run: npm run test:mocha
+    - run: npx run-s test:*
     - name: Coveralls Parallel
       uses: coverallsapp/github-action@master
       with:

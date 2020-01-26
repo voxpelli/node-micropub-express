@@ -1,3 +1,7 @@
+## 0.8.1 (2020-01-26)
+
+* **Improvements:** Only publishes the necessary files to npm now, skips tests etc
+
 ## 0.8.0 (2020-01-26)
 
 * **Breaking change:** Now requires Node v10

@@ -1,3 +1,9 @@
+## 0.8.0 (2020-01-26)
+
+* **Breaking change:** Now requires Node v10
+* **Improvements:** Modernized code and dependencies
+* **Improvements:** Added basic type linting
+
 ## 0.7.1 (2017-02-14)
 
 * **Improvements:** _Spec compliance:_ Add `create` as the default scope required, but still accept `post`.

@@ -26,7 +26,7 @@
     "clean:declarations": "rm -rf $(find . -maxdepth 2 -type f -name '*.d.ts')",
     "clean": "run-p clean:*",
     "prepublishOnly": "run-s build",
-    "test:mocha": "NODE_ENV=test nyc --reporter=lcov --reporter text mocha 'test/**/*.spec.js'",
+    "test:mocha": "nyc --reporter=lcov --reporter text mocha 'test/**/*.spec.js'",
     "test-ci": "run-s test:*",
     "test": "run-s clean check test:*"
   },

@@ -1,3 +1,10 @@
+## 0.9.0 (2020-08-20)
+
+* **Breaking change:** Now requires Node v12
+* **Improvements:** Now publishes Typescript declarations
+* **Minor:** Updated most dependencies – mostly dev dependencies that needed updates
+* **Minor:** Updated to the latest @voxpelli/eslint-config linting setup
+
 ## 0.8.1 (2020-01-26)
 
 * **Improvements:** Only publishes the necessary files to npm now, skips tests etc

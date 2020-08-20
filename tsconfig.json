@@ -12,7 +12,6 @@
     "allowJs": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "maxNodeModuleJsDepth": 2,
 
     /* Strict Type-Checking Options */
     "strict": true,

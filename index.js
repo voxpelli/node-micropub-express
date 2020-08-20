@@ -491,17 +491,23 @@ module.exports = function (options) {
       // If a simple GET is performed, then we just want to verify the authorization credentials
       return res.sendStatus(200);
     } else if (req.query.q !== undefined) {
+      const query = req.query.q;
+
+      if (typeof query !== 'string') {
+        return badRequest(res, 'Invalid q parameter format');
+      }
+
       if (!options.queryHandler) {
-        return req.query.q === 'config' ? res.json({}) : badRequest(res, 'Queries are not supported');
+        return query === 'config' ? res.json({}) : badRequest(res, 'Queries are not supported');
       }
 
       // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
       Promise.resolve()
         .then(async () => {
-          const result = await options.queryHandler(req.query.q, req);
+          const result = await options.queryHandler(query, req);
 
           if (!result) {
-            return req.query.q === 'config' ? res.json({}) : badRequest(res, 'Query type is not supported');
+            return query === 'config' ? res.json({}) : badRequest(res, 'Query type is not supported');
           }
 
           res.format({

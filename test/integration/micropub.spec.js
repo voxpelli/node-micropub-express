@@ -590,6 +590,17 @@ describe('Micropub API', function () {
         });
     });
 
+    it('should fail on invalid query format', async () => {
+      await agent
+        .get('/micropub')
+        .query({ q: ['syndicate-to', 'foo'] })
+        .set('Authorization', 'Bearer ' + token)
+        .send()
+        .expect(400, badRequestBody('Invalid q parameter format'));
+
+      queryHandlerStub.should.not.have.been.called;
+    });
+
     it('should fail when no queryHandler has been specified', function (done) {
       app = express();
       app.use('/micropub', micropub({

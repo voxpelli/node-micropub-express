@@ -11,7 +11,7 @@ Provides a Micropub route for Express 4.x
 
 ## Requirements
 
-Requires at least Node.js 6.x
+Node.js requirement is set in `package.json` (Use eg. [installed-check](https://github.com/voxpelli/node-installed-check) to validate that it complies with your requirements)
 
 ## Installation
 

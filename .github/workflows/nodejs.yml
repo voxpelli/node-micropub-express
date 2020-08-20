@@ -1,6 +1,8 @@
 name: Node CI
 
-on: [push]
+on:
+  - push
+  - pull_request
 
 jobs:
   test:
@@ -18,14 +20,20 @@ jobs:
       with:
         node-version: ${{ matrix.node_version }}
     - run: npm install
-    - run: npx run-s test:*
+    - run: npm run test-ci
     - name: Coveralls Parallel
-      uses: coverallsapp/github-action@master
+      uses: coverallsapp/github-action@v1.1.1
       with:
         github-token: ${{ secrets.github_token }}
+        flag-name: run-${{ matrix.os }}-${{ matrix.node_version }}
         parallel: true
+
+  coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
     - name: Coveralls Finished
-      uses: coverallsapp/github-action@master
+      uses: coverallsapp/github-action@v1.1.1
       with:
         github-token: ${{ secrets.github_token }}
         parallel-finished: true

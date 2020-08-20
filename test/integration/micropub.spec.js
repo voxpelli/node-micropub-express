@@ -1,3 +1,4 @@
+/* eslint-disable mocha/no-setup-in-describe */
 // @ts-check
 /// <reference types="node" />
 /// <reference types="mocha" />
@@ -23,11 +24,11 @@ chai.use(chaiAsPromised);
 chai.use(sinonChai);
 chai.should();
 
-describe('Micropub API', function () {
-  const customLogger = require('bunyan-adaptor')({ verbose: function () {} });
-  const express = require('express');
-  const micropub = require('../../');
+const customLogger = require('bunyan-adaptor')({ verbose: function () {} });
+const express = require('express');
+const micropub = require('../..');
 
+describe('Micropub API', function () {
   let app;
   /** @type {SuperTestAgent} */
   let agent;
@@ -199,7 +200,7 @@ describe('Micropub API', function () {
       const mock = nock('https://tokens.indieauth.com/')
         .matchHeader('Authorization', function (val) { return !!(val && val[0] === 'Bearer ' + token); })
         .matchHeader('Content-Type', function (val) { return !!(val && val[0] === 'application/x-www-form-urlencoded'); })
-        .matchHeader('User-Agent', function (val) { return !!(val && /^micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val)); })
+        .matchHeader('User-Agent', function (val) { return !!(val && /^micropub-express\/[\d.]+ \(http[^)]+\)$/.test(val)); })
         .get('/token')
         .reply(
           200,
@@ -285,7 +286,7 @@ describe('Micropub API', function () {
       agent = request.agent(app);
 
       const mock = nock('https://tokens.indieauth.com/')
-        .matchHeader('User-Agent', function (val) { return !!(val && /^foobar\/1\.0 micropub-express\/[0-9.]+ \(http[^)]+\)$/.test(val)); })
+        .matchHeader('User-Agent', function (val) { return !!(val && /^foobar\/1\.0 micropub-express\/[\d.]+ \(http[^)]+\)$/.test(val)); })
         .get('/token')
         .reply(
           200,

@@ -13,9 +13,9 @@ chai.use(chaiAsPromised);
 
 const should = chai.should();
 
-describe('Micropub Parse', function () {
-  const micropub = require('../');
+const micropub = require('..');
 
+describe('Micropub Parse', function () {
   describe('Form Encoded Body', function () {
     it('should be correctly parsed', function () {
       micropub.processFormEncodedBody({
@@ -117,6 +117,7 @@ describe('Micropub Parse', function () {
       const result = micropub.queryStringEncodeWithArrayBrackets({
         foo: 123,
         abc: true,
+        // eslint-disable-next-line unicorn/no-null
         xyz: null,
         def: undefined,
         bar: [

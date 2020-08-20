@@ -67,7 +67,7 @@ const getBunyanAdaptor = (function () {
 
 const requiredScope = Object.freeze(['create', 'post']);
 
-const formEncodedKey = /\[([^\]]*)\]$/;
+const formEncodedKey = /\[([^\]]*)]$/;
 
 class TokenError extends Error {}
 class TokenScopeError extends TokenError {
@@ -130,7 +130,7 @@ const badRequest = function (res, reason, code) {
  * @returns {string}
  */
 const normalizeUrl = function (url) {
-  if (url.substr(-1) !== '/') {
+  if (url.slice(-1) !== '/') {
     url += '/';
   }
   return url;
@@ -197,7 +197,7 @@ const processFormEncodedBody = function (body) {
       }
 
       if (key.startsWith('mp-')) {
-        key = key.substr(3);
+        key = key.slice(3);
         targetProperty = result.mp;
       } else {
         targetProperty = result.properties;
@@ -229,7 +229,7 @@ const processJsonEncodedBody = function (body) {
     if (reservedProperties.includes(key) || ['properties', 'type'].includes(key)) {
       result[key] = value;
     } else if (key.startsWith('mp-')) {
-      key = key.substr(3);
+      key = key.slice(3);
       result.mp[key] = [].concat(value);
     }
   }
@@ -388,7 +388,7 @@ const micropubExpress = function (options) {
       throw new TokenError('Invalid token');
     }
 
-    meReferences = meReferences.map(normalizeUrl);
+    meReferences = meReferences.map(url => normalizeUrl(url));
 
     if (!meReferences.includes(normalizeUrl(me))) {
       logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + me + '"');

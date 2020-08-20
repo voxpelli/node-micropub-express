@@ -20,7 +20,6 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
 /** @typedef {import('querystring').ParsedUrlQuery} ParsedUrlQuery */
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
-/** @typedef {import('express').Router} Router */
 
 // TODO: Figure out how to import this definition from https://github.com/DefinitelyTyped/DefinitelyTyped/blob/03fddd7a3f2322433a867d9edcee561ac85d950d/types/multer/index.d.ts#L103-L124
 /** @typedef {*} MulterFile */
@@ -43,11 +42,11 @@ const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + p
 /**
  * @typedef MinimalParsedMicropubStructure
  * @property {string[]|undefined} [type]
- * @property {Object<string,any[]>} properties
- * @property {Object<string,any[]>} mp
+ * @property {{ [property: string]: import('type-fest').JsonValue[]}} properties
+ * @property {{ [property: string]: import('type-fest').JsonValue[]}} mp
  */
 
-/** @typedef {MinimalParsedMicropubStructure & { [reservedPropertyName: string]: any }} ParsedMicropubStructure */
+/** @typedef {MinimalParsedMicropubStructure & import('type-fest').JsonObject} ParsedMicropubStructure */
 
 /**
  * @template T
@@ -298,22 +297,30 @@ const processFiles = function (body, files, logger) {
 /** @typedef {TokenReferenceResolver|MaybeArray<TokenReference>} TokenReferenceOption */
 
 /**
- * @param {Object} options
- * @param {(data: ParsedMicropubStructure, req: Request) => (undefined|{url: string})} options.handler
- * @param {TokenReferenceOption} options.tokenReference
- * @param {BunyanLite} [options.logger]
- * @param {(q: string, req: Request) => any} [options.queryHandler]
- * @param {string} [options.userAgent]
- * @returns {Router}
+ * @typedef MicropubExpressOptions
+ * @property {(data: ParsedMicropubStructure, req: Request) => (undefined|{url: string})} handler
+ * @property {TokenReferenceOption} tokenReference
+ * @property {BunyanLite} [logger]
+ * @property {(q: string, req: Request) => any} [queryHandler]
+ * @property {string} [userAgent]
+ */
+
+/**
+ * @param {MicropubExpressOptions} options
+ * @returns {import('express').Router}
  */
 const micropubExpress = function (options) {
-  const logger = options.logger || getBunyanAdaptor();
+  const {
+    logger = getBunyanAdaptor(),
+    handler,
+    queryHandler
+  } = options;
 
   if (!options.tokenReference || !['function', 'object'].includes(typeof options.tokenReference)) {
     throw new Error('No correct token set. It\'s needed for authorization checks.');
   }
 
-  if (!options.handler || typeof options.handler !== 'function') {
+  if (!handler || typeof handler !== 'function') {
     throw new Error('No correct handler set. It\'s needed to actually process a Micropub request.');
   }
 
@@ -497,14 +504,14 @@ const micropubExpress = function (options) {
         return badRequest(res, 'Invalid q parameter format');
       }
 
-      if (!options.queryHandler) {
+      if (!queryHandler) {
         return query === 'config' ? res.json({}) : badRequest(res, 'Queries are not supported');
       }
 
       // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
       Promise.resolve()
         .then(async () => {
-          const result = await options.queryHandler(query, req);
+          const result = await queryHandler(query, req);
 
           if (!result) {
             return query === 'config' ? res.json({}) : badRequest(res, 'Query type is not supported');
@@ -544,7 +551,7 @@ const micropubExpress = function (options) {
     // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
     Promise.resolve()
       .then(async () => {
-        const result = await options.handler(data, req);
+        const result = await handler(data, req);
 
         if (!result || !result.url) {
           return res.sendStatus(400);

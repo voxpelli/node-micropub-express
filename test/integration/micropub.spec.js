@@ -100,7 +100,7 @@ describe('Micropub API', function () {
   };
 
   /**
-   * @param {NockScope} [mock]
+   * @param {NockScope|undefined} mock
    * @param {MochaDone} done
    * @param {number} [code]
    * @param {*} [content]

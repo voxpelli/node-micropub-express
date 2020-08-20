@@ -1,0 +1,3 @@
+allow:
+  - bunyan-adaptor
+  - querystring

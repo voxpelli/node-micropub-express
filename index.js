@@ -306,7 +306,7 @@ const processFiles = function (body, files, logger) {
  * @param {string} [options.userAgent]
  * @returns {Router}
  */
-module.exports = function (options) {
+const micropubExpress = function (options) {
   const logger = options.logger || getBunyanAdaptor();
 
   if (!options.tokenReference || !['function', 'object'].includes(typeof options.tokenReference)) {
@@ -560,6 +560,8 @@ module.exports = function (options) {
   return router;
 };
 
-module.exports.processFormEncodedBody = processFormEncodedBody;
-module.exports.processJsonEncodedBody = processJsonEncodedBody;
-module.exports.queryStringEncodeWithArrayBrackets = queryStringEncodeWithArrayBrackets;
+micropubExpress.processFormEncodedBody = processFormEncodedBody;
+micropubExpress.processJsonEncodedBody = processJsonEncodedBody;
+micropubExpress.queryStringEncodeWithArrayBrackets = queryStringEncodeWithArrayBrackets;
+
+module.exports = micropubExpress;

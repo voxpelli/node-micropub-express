@@ -9,4 +9,7 @@
 /package-lock.json
 /yarn.lock
 
+# Generated types
+*.d.ts
+
 # Library specific ones

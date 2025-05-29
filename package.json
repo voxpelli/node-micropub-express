@@ -79,7 +79,7 @@
   "dependencies": {
     "body-parser": "^1.13.1",
     "bunyan-adaptor": "^4.0.1",
-    "express": "^4.13.0",
+    "express": "^5.0.0",
     "multer": "^1.0.1",
     "node-fetch": "^1.3.0",
     "verror": "^1.8.1"

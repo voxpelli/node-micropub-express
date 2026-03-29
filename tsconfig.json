@@ -1,24 +1,8 @@
 {
-  "files": [
-    "index.js"
-  ],
-  "include": [
-    "test/**/*.js"
-  ],
+  "extends": "@voxpelli/tsconfig/node20.json",
+  "files": ["index.js"],
+  "include": ["lib/**/*", "test/**/*"],
   "compilerOptions": {
-    /* Basic Options */
-    "target": "ES2016",
-    "module": "commonjs",
-    "allowJs": true,
-    "resolveJsonModule": true,
-    "noEmit": true,
-
-    /* Strict Type-Checking Options */
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-
-    /* Additional Checks */
-    "noUnusedLocals": true
+    "types": ["node"]
   }
 }

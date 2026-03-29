@@ -1,5 +1,6 @@
 # Basic ones
 /coverage
+/coverage-ts
 /docs
 /node_modules
 /.env
@@ -11,5 +12,8 @@
 
 # Generated types
 *.d.ts
+*.d.ts.map
+!/lib/**/*.d.ts
+!/index.d.ts
 
 # Library specific ones

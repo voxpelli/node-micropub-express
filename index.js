@@ -2,115 +2,43 @@
 /// <reference types="node" />
 /// <reference types="body-parser" />
 
-'use strict';
+import { createRequire } from 'node:module';
 
-const qs = require('querystring');
+import express from 'express';
+import bodyParser from 'body-parser';
+import multer from 'multer';
+import createBunyanAdaptor from 'bunyan-adaptor';
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const multer = require('multer');
+import {
+  ensureArrayAndCloneIt,
+  processFormEncodedBody,
+  processJsonEncodedBody,
+  processFiles,
+  queryStringEncodeWithArrayBrackets,
+  TokenScopeError,
+} from './lib/core.js';
+import { matchAnyTokenReference } from './lib/token.js';
 
-const fetch = require('node-fetch');
-const VError = require('verror');
-
-const pkg = require('./package.json');
-const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
-
+/** @typedef {import('./lib/core.js').TokenReference} TokenReference */
+/** @typedef {import('./lib/core.js').MaybeArray} MaybeArray */
+/** @typedef {import('./lib/core.js').MaybePromised} MaybePromised */
+/** @typedef {import('./lib/core.js').ParsedMicropubStructure} ParsedMicropubStructure */
 /** @typedef {import('bunyan-adaptor').BunyanLite} BunyanLite */
-/** @typedef {import('querystring').ParsedUrlQuery} ParsedUrlQuery */
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
 
-// TODO: Figure out how to import this definition from https://github.com/DefinitelyTyped/DefinitelyTyped/blob/03fddd7a3f2322433a867d9edcee561ac85d950d/types/multer/index.d.ts#L103-L124
-/** @typedef {*} MulterFile */
-
-/**
- * @template T
- * @typedef {T|T[]} MaybeArray
- */
-/**
- * @template T
- * @typedef {T|Promise<T>} MaybePromised
- */
-
-/**
- * @typedef TokenReference
- * @property {string} me
- * @property {string} endpoint
- */
-
-/**
- * @typedef MinimalParsedMicropubStructure
- * @property {string[]|undefined} [type]
- * @property {{ [property: string]: import('type-fest').JsonValue[]}} properties
- * @property {{ [property: string]: import('type-fest').JsonValue[]}} mp
- */
-
-/** @typedef {MinimalParsedMicropubStructure & import('type-fest').JsonObject} ParsedMicropubStructure */
-
-/**
- * @template T
- * @param {MaybeArray<T>} value
- * @returns {T[]}
- */
-const ensureArrayAndCloneIt = (value) => Array.isArray(value) ? [...value] : [value];
+const require = createRequire(import.meta.url);
+const pkg = require('./package.json');
+const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
 const getBunyanAdaptor = (function () {
   /** @type {BunyanLite} */
   let bunyanAdaptor;
   return () => {
-    if (!bunyanAdaptor) { bunyanAdaptor = require('bunyan-adaptor')(); }
+    if (!bunyanAdaptor) { bunyanAdaptor = createBunyanAdaptor(); }
     return bunyanAdaptor;
   };
 }());
-
-const requiredScope = Object.freeze(['create', 'post']);
-
-const formEncodedKey = /\[([^\]]*)]$/;
-
-class TokenError extends Error {}
-class TokenScopeError extends TokenError {
-  /**
-   * @param {string} message
-   * @param {string} scope
-   */
-  constructor (message, scope) {
-    super(message);
-    this.scope = scope;
-  }
-}
-
-/** @typedef {string|number|boolean} BasicEncodeableTypes */
-
-/**
- * @param {BasicEncodeableTypes|BasicEncodeableTypes[]|Object<string,any>} data
- * @param {string} [key]
- * @returns {string}
- */
-const internalQueryStringEncodeWithArrayBrackets = function (data, key) {
-  if (Array.isArray(data)) {
-    return data.map(item => internalQueryStringEncodeWithArrayBrackets(item, key + '[]')).join('&');
-  } else if (typeof data === 'object' && data !== null) {
-    return Object.keys(data)
-      .map(dataKey => internalQueryStringEncodeWithArrayBrackets(data[dataKey], key ? key + '[' + dataKey + ']' : dataKey))
-      .filter(item => !!item)
-      .join('&');
-  } else if (!key || typeof data === 'undefined') {
-    return '';
-  } else if (typeof data === 'string' || typeof data === 'number' || typeof data === 'boolean' || data === null) {
-    return encodeURIComponent(key) + (data ? '=' + encodeURIComponent(data) : '');
-  } else {
-    throw new TypeError(`Invalid data type encountered: ${typeof data}`);
-  }
-};
-
-/**
- * @param {Object<string,any>} data
- * @returns {string}
- */
-const queryStringEncodeWithArrayBrackets = function (data) {
-  return internalQueryStringEncodeWithArrayBrackets(data);
-};
 
 /**
  * @param {Response} res
@@ -124,177 +52,8 @@ const badRequest = function (res, reason, code) {
   });
 };
 
-/**
- * @param {string} url
- * @returns {string}
- */
-const normalizeUrl = function (url) {
-  if (url.slice(-1) !== '/') {
-    url += '/';
-  }
-  return url;
-};
-
-const reservedProperties = Object.freeze([
-  'access_token',
-  'q',
-  'url',
-  'update',
-  'add',
-  'delete'
-]);
-
-/**
- * @param {Object<string,any>} result
- */
-const cleanEmptyKeys = function (result) {
-  for (const key in result) {
-    if (typeof result[key] === 'object' && Object.getOwnPropertyNames(result[key])[0] === undefined) {
-      delete result[key];
-    }
-  }
-};
-
-/**
- * @param {ParsedUrlQuery} body
- * @returns {ParsedMicropubStructure}
- */
-const processFormEncodedBody = function (body) {
-  /** @type {ParsedMicropubStructure} */
-  const result = {
-    type: body.h ? ['h-' + body.h] : undefined,
-    properties: {},
-    mp: {}
-  };
-
-  if (body.h) {
-    delete body.h;
-  }
-
-  for (let key in body) {
-    const rawValue = body[key];
-
-    if (reservedProperties.includes(key)) {
-      result[key] = rawValue;
-    } else {
-      /** @type {Object<string,any[]>} */
-      let targetProperty;
-      /** @type {string|string[]|Object<string,any>} */
-      let value = rawValue;
-      let subKey;
-
-      while ((subKey = formEncodedKey.exec(key))) {
-        if (subKey[1]) {
-          /** @type {Object<string,any>} */
-          const tmp = {};
-          tmp[subKey[1]] = value;
-          value = tmp;
-        } else {
-          value = ensureArrayAndCloneIt(value);
-        }
-        key = key.slice(0, subKey.index);
-      }
-
-      if (key.startsWith('mp-')) {
-        key = key.slice(3);
-        targetProperty = result.mp;
-      } else {
-        targetProperty = result.properties;
-      }
-
-      targetProperty[key] = ensureArrayAndCloneIt(value);
-    }
-  }
-
-  cleanEmptyKeys(result);
-
-  return result;
-};
-
-/**
- * @param {Object<string,any>} body
- * @returns {ParsedMicropubStructure}
- */
-const processJsonEncodedBody = function (body) {
-  /** @type {ParsedMicropubStructure} */
-  const result = {
-    properties: {},
-    mp: {}
-  };
-
-  for (let key in body) {
-    const value = body[key];
-
-    if (reservedProperties.includes(key) || ['properties', 'type'].includes(key)) {
-      result[key] = value;
-    } else if (key.startsWith('mp-')) {
-      key = key.slice(3);
-      result.mp[key] = [].concat(value);
-    }
-  }
-
-  for (const key in body.properties) {
-    if (['url'].includes(key)) {
-      result[key] = result[key] || [].concat(body.properties[key])[0];
-      delete body.properties[key];
-    }
-  }
-
-  cleanEmptyKeys(result);
-
-  return result;
-};
-
-/**
- * @template T
- * @typedef FilesByType
- * @property {T[]} [audio]
- * @property {T[]} [photo]
- * @property {T[]} [video]
- */
-/** @typedef {{ filename: string, buffer: Buffer }} ProcessedFile */
-
-/**
- * @template T
- * @param {T} body
- * @param {{ [type: string]: MulterFile[] }} files
- * @param {BunyanLite} logger
- * @returns {T & {files?: FilesByType<ProcessedFile>}}
- */
-const processFiles = function (body, files, logger) {
-  /** @type {FilesByType<ProcessedFile>} */
-  const allResults = {};
-
-  for (const type of ['video', 'photo', 'audio']) {
-    /** @type {ProcessedFile[]} */
-    const result = [];
-    const typeFiles = [...(files[type] || []), ...(files[type + '[]'] || [])];
-
-    typeFiles.forEach(file => {
-      if (file.truncated) {
-        logger.warn('File was truncated');
-        return;
-      }
-
-      result.push({
-        filename: file.originalname,
-        buffer: file.buffer
-      });
-    });
-
-    if (result.length) {
-      // @ts-ignore
-      allResults[type] = result;
-    }
-  }
-
-  return Object.getOwnPropertyNames(allResults)[0] !== undefined
-    ? { ...body, files: allResults }
-    : { ...body };
-};
-
-/** @typedef {(req?: Request)=>(MaybePromised<MaybeArray<TokenReference>>)} TokenReferenceResolver */
-/** @typedef {TokenReferenceResolver|MaybeArray<TokenReference>} TokenReferenceOption */
+/** @typedef {(req?: Request)=>(import('./lib/core.js').MaybePromised<import('./lib/core.js').MaybeArray<TokenReference>>)} TokenReferenceResolver */
+/** @typedef {TokenReferenceResolver|import('./lib/core.js').MaybeArray<TokenReference>} TokenReferenceOption */
 
 /**
  * @typedef MicropubExpressOptions
@@ -330,89 +89,6 @@ const micropubExpress = function (options) {
   // @ts-ignore
   const tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : async () => options.tokenReference;
 
-  // Helper functions
-
-  /**
-   * @param {string} token
-   * @param {TokenReference[]} references
-   * @returns {Promise<boolean|TokenError>}
-   */
-  const matchAnyTokenReference = async function (token, references) {
-    if (!references || !references.length) {
-      return false;
-    }
-
-    /** @type {{ [endpoint: string]: string[] }} */
-    const endpoints = {};
-
-    references.forEach(reference => {
-      endpoints[reference.endpoint] = endpoints[reference.endpoint] || [];
-      endpoints[reference.endpoint].push(reference.me);
-    });
-
-    const result = await Promise.all(
-      Object.keys(endpoints)
-        .map(endpoint =>
-          validateToken(token, endpoints[endpoint], endpoint)
-            // Turn the rejected errors into resolved errors to get all statuses returned in the Promise.all()
-            .catch(err => err)
-        )
-    );
-
-    return (
-      result.some(valid => valid === true) ||
-      result.find(valid => valid instanceof TokenScopeError) ||
-      result[0]
-    );
-  };
-
-  /**
-   * @param {string} token
-   * @param {string[]} meReferences
-   * @param {string} endpoint
-   * @returns {Promise<true|TokenError>}
-   */
-  const validateToken = async function (token, meReferences, endpoint) {
-    if (!token) {
-      throw new TokenError('No token specified');
-    }
-
-    const fetchOptions = {
-      headers: {
-        Authorization: 'Bearer ' + token,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': userAgent
-      }
-    };
-
-    // @ts-ignore
-    const response = await fetch(endpoint, fetchOptions);
-    // @ts-ignore
-    const body = await response.text();
-    const { me, scope } = qs.parse(body) || {};
-
-    if (!me || !scope || Array.isArray(me) || Array.isArray(scope)) {
-      throw new TokenError('Invalid token');
-    }
-
-    meReferences = meReferences.map(url => normalizeUrl(url));
-
-    if (!meReferences.includes(normalizeUrl(me))) {
-      logger.debug('Token "me" didn\'t match any of: "' + meReferences.join('", "') + '", Got: "' + me + '"');
-      throw new TokenError(`Token "me" didn't match any valid reference. Got: "${me}"`);
-    }
-
-    const scopeMatch = [' ', ','].some(separator => scope.split(separator).some(scope => requiredScope.includes(scope)));
-
-    if (!scopeMatch) {
-      const errMessage = `Missing "${requiredScope[0]}" scope, instead got: ${scope}`;
-      logger.debug(errMessage);
-      throw new TokenScopeError(errMessage, requiredScope[0]);
-    }
-
-    return true;
-  };
-
   // Router setup
 
   const router = express.Router({
@@ -432,7 +108,12 @@ const micropubExpress = function (options) {
   router.use((req, res, next) => {
     logger.debug({ body: req.body }, 'Received a request');
 
-    if (req.body) {
+    // body-parser v2 leaves req.body as undefined for empty/missing bodies
+    if (!req.body) {
+      req.body = {};
+    }
+
+    if (req.body && Object.keys(req.body).length > 0) {
       if (req.is('json')) {
         req.body = processJsonEncodedBody(req.body);
       } else {
@@ -469,7 +150,7 @@ const micropubExpress = function (options) {
       .then(async () => {
         const resolvedTokenReference = await tokenReference(req);
 
-        const valid = await matchAnyTokenReference(token, ensureArrayAndCloneIt(resolvedTokenReference));
+        const valid = await matchAnyTokenReference(token, ensureArrayAndCloneIt(resolvedTokenReference), userAgent, logger);
 
         if (valid === true) { return next(); }
         if (valid && !(valid instanceof Error)) { return next(); }
@@ -489,7 +170,7 @@ const micropubExpress = function (options) {
       })
       .catch(err => {
         logger.debug(err, 'An error occurred when trying to validate token');
-        next(new VError(err, "Couldn't validate token"));
+        next(new Error("Couldn't validate token", { cause: err }));
       });
   });
 
@@ -526,7 +207,7 @@ const micropubExpress = function (options) {
           });
         })
         .catch(err => {
-          next(new VError(err, 'Error in query handling'));
+          next(new Error('Error in query handling', { cause: err }));
         });
     } else {
       return badRequest(res, 'No known query parameters');
@@ -560,7 +241,7 @@ const micropubExpress = function (options) {
         return res.redirect(201, result.url);
       })
       .catch(err => {
-        next(new VError(err, 'Error in post handling'));
+        next(new Error('Error in post handling', { cause: err }));
       });
   });
 
@@ -571,4 +252,7 @@ micropubExpress.processFormEncodedBody = processFormEncodedBody;
 micropubExpress.processJsonEncodedBody = processJsonEncodedBody;
 micropubExpress.queryStringEncodeWithArrayBrackets = queryStringEncodeWithArrayBrackets;
 
-module.exports = micropubExpress;
+export default micropubExpress;
+
+// Also export as named for ESM consumers
+export { processFormEncodedBody, processJsonEncodedBody, queryStringEncodeWithArrayBrackets };

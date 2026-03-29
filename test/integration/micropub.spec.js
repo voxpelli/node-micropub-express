@@ -1,45 +1,33 @@
-/* eslint-disable mocha/no-setup-in-describe */
 // @ts-check
 /// <reference types="node" />
-/// <reference types="mocha" />
-/// <reference types="chai" />
 
-'use strict';
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import assert from 'node:assert/strict';
+import { parse } from 'node:querystring';
 
-/** @typedef {import('mocha').Done} MochaDone */
+import nock from 'nock';
+import request from 'supertest';
+import createBunyanAdaptor from 'bunyan-adaptor';
+import express from 'express';
+
+import micropub from '../../index.js';
+
 /** @typedef {import('nock').Scope} NockScope */
-/** @typedef {import('sinon').SinonStub} SinonStub */
-/** @typedef {import('supertest').Test} SuperTestTest */
-/** @typedef {import('supertest').SuperTest<SuperTestTest>} SuperTestAgent */
-
-const qs = require('querystring');
-const chai = require('chai');
-const chaiAsPromised = require('chai-as-promised');
-const nock = require('nock');
-const request = require('supertest');
-const sinon = require('sinon');
-const sinonChai = require('sinon-chai');
-
-chai.use(chaiAsPromised);
-chai.use(sinonChai);
-chai.should();
-
-const customLogger = require('bunyan-adaptor')({ verbose: function () {} });
-const express = require('express');
-const micropub = require('../..');
 
 describe('Micropub API', function () {
   let app;
-  /** @type {SuperTestAgent} */
+  /** @type {import('supertest').Agent} */
   let agent;
   /** @type {string} */
   let token;
-  /** @type {import('../../').TokenReferenceOption} */
+  /** @type {import('../../index.js').TokenReferenceOption} */
   let tokenReference;
-  /** @type {SinonStub} */
+  /** @type {ReturnType<typeof mock.fn>} */
   let handlerStub;
-  /** @type {SinonStub} */
+  /** @type {ReturnType<typeof mock.fn>} */
   let queryHandlerStub;
+
+  const customLogger = createBunyanAdaptor({ verbose: function () {} });
 
   /**
    * @param {number} code
@@ -67,14 +55,14 @@ describe('Micropub API', function () {
   });
 
   /**
-   * @param {undefined|false} [mock]
-   * @param {undefined|false} [done]
+   * @param {undefined|false} [_mock]
+   * @param {undefined|false} [_done]
    * @param {number} [code]
-   * @param {string|Object<string,any>|((req: SuperTestTest) => string|Object<string,any>)} [content]
+   * @param {string|Object<string,any>|((req: import('supertest').Test) => import('supertest').Test)} [content]
    * @param {*} [response]
-   * @returns {SuperTestTest}
+   * @returns {import('supertest').Test}
    */
-  const doRequest = function (mock, done, code, content, response) {
+  const doRequest = function (_mock, _done, code, content, response) {
     let req = agent
       .post('/micropub')
       .set('Authorization', 'Bearer ' + token);
@@ -100,20 +88,16 @@ describe('Micropub API', function () {
   };
 
   /**
-   * @param {NockScope|undefined} mock
-   * @param {MochaDone} done
+   * @param {NockScope|undefined} nockMock
    * @param {number} [code]
    * @param {*} [content]
    * @param {*} [response]
+   * @returns {Promise<void>}
    */
-  const asyncRequest = function (mock, done, code, content, response) {
+  const asyncRequest = async function (nockMock, code, content, response) {
     const req = doRequest(undefined, undefined, code, content, response);
-
-    req.end(function (err) {
-      if (err) { return done(err); }
-      if (mock) { mock.done(); }
-      done();
-    });
+    await req;
+    if (nockMock) { nockMock.done(); }
   };
 
   beforeEach(function () {
@@ -130,13 +114,13 @@ describe('Micropub API', function () {
       endpoint: 'https://tokens.indieauth.com/token'
     };
 
-    handlerStub = sinon.stub().resolves({
+    handlerStub = mock.fn(() => Promise.resolve({
       url: 'http://example.com/new/post'
-    });
+    }));
 
-    queryHandlerStub = sinon.stub().resolves({
+    queryHandlerStub = mock.fn(() => Promise.resolve({
       'syndicate-to': ['https://example.com/twitter', 'https://example.com/fb']
-    });
+    }));
 
     app = express();
     app.use('/micropub', micropub({
@@ -151,56 +135,53 @@ describe('Micropub API', function () {
 
   afterEach(function () {
     nock.cleanAll();
+    mock.restoreAll();
   });
 
   describe('basics', function () {
     /** @type {NockScope} */
-    let mock;
+    let nockMock;
 
     beforeEach(function () {
-      mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+      nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
     });
 
-    it('should accept a param-less GET-request', function (done) {
-      agent
+    it('should accept a param-less GET-request', async function () {
+      await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
-        .expect(200, function (err) {
-          mock.done();
-          done(err);
-        });
+        .expect(200);
+      nockMock.done();
     });
 
-    it('should not accept GET-request with unknown params', function (done) {
-      agent
+    it('should not accept GET-request with unknown params', async function () {
+      await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .query({ foo: 'bar' })
-        .expect(400, badRequestBody('No known query parameters'), function (err) {
-          mock.done();
-          done(err);
-        });
+        .expect(400, badRequestBody('No known query parameters'));
+      nockMock.done();
     });
 
-    it('should require authorization', () => {
-      return agent
+    it('should require authorization', async () => {
+      await agent
         .post('/micropub')
         .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'));
     });
 
-    it('should also require authorization on GET', () => {
-      return agent
+    it('should also require authorization on GET', async () => {
+      await agent
         .get('/micropub')
         .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'));
     });
   });
 
   describe('auth', function () {
-    it('should call handler and return 201 on successful request', function (done) {
-      const mock = nock('https://tokens.indieauth.com/')
-        .matchHeader('Authorization', function (val) { return !!(val && val[0] === 'Bearer ' + token); })
-        .matchHeader('Content-Type', function (val) { return !!(val && val[0] === 'application/x-www-form-urlencoded'); })
-        .matchHeader('User-Agent', function (val) { return !!(val && /^micropub-express\/[\d.]+ \(http[^)]+\)$/.test(val)); })
+    it('should call handler and return 201 on successful request', async function () {
+      const nockMock = nock('https://tokens.indieauth.com/')
+        .matchHeader('Authorization', 'Bearer ' + token)
+        .matchHeader('Content-Type', 'application/x-www-form-urlencoded')
+        .matchHeader('User-Agent', /^micropub-express\/[\d.]+ \(http[^)]+\)$/)
         .get('/token')
         .reply(
           200,
@@ -208,50 +189,50 @@ describe('Micropub API', function () {
           { 'Content-Type': 'application/x-www-form-urlencoded' }
         );
 
-      asyncRequest(mock, done);
+      await asyncRequest(nockMock);
     });
 
-    it('should return error on invalid token', function (done) {
-      const mock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
-      asyncRequest(mock, done, 403, undefined, {
+    it('should return error on invalid token', async function () {
+      const nockMock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
+      await asyncRequest(nockMock, 403, undefined, {
         error: 'forbidden',
         error_description: 'Invalid token'
       });
     });
 
-    it('should return error on mismatching me', function (done) {
-      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
-      asyncRequest(mock, done, 403, undefined, {
+    it('should return error on mismatching me', async function () {
+      const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
+      await asyncRequest(nockMock, 403, undefined, {
         error: 'forbidden',
         error_description: 'Token "me" didn\'t match any valid reference. Got: "http://voxpelli.com/"'
       });
     });
 
-    it('should return error on missing "create" scope', function (done) {
-      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
-      asyncRequest(mock, done, 401, undefined, {
+    it('should return error on missing "create" scope', async function () {
+      const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=misc');
+      await asyncRequest(nockMock, 401, undefined, {
         error: 'insufficient_scope',
         error_description: 'Missing "create" scope, instead got: misc',
         scope: 'create'
       });
     });
 
-    it('should support "create" scope', function (done) {
-      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=create');
-      asyncRequest(mock, done);
+    it('should support "create" scope', async function () {
+      const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=create');
+      await asyncRequest(nockMock);
     });
 
-    it('should handle multiple scopes', function (done) {
-      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
-      asyncRequest(mock, done);
+    it('should handle multiple scopes', async function () {
+      const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+      await asyncRequest(nockMock);
     });
 
-    it('should handle space-separated scopes', function (done) {
-      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post%20misc');
-      asyncRequest(mock, done);
+    it('should handle space-separated scopes', async function () {
+      const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post%20misc');
+      await asyncRequest(nockMock);
     });
 
-    it('should handle multiple token references', function (done) {
+    it('should handle multiple token references', async function () {
       app = express();
       app.use('/micropub', micropub({
         logger: customLogger,
@@ -266,12 +247,12 @@ describe('Micropub API', function () {
 
       agent = request.agent(app);
 
-      const mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fexample.com%2F&scope=post,misc');
+      const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fexample.com%2F&scope=post,misc');
 
-      asyncRequest(mock, done);
+      await asyncRequest(nockMock);
     });
 
-    it('should use custom user agent', function (done) {
+    it('should use custom user agent', async function () {
       app = express();
       app.use('/micropub', micropub({
         logger: customLogger,
@@ -285,8 +266,8 @@ describe('Micropub API', function () {
 
       agent = request.agent(app);
 
-      const mock = nock('https://tokens.indieauth.com/')
-        .matchHeader('User-Agent', function (val) { return !!(val && /^foobar\/1\.0 micropub-express\/[\d.]+ \(http[^)]+\)$/.test(val)); })
+      const nockMock = nock('https://tokens.indieauth.com/')
+        .matchHeader('User-Agent', /^foobar\/1\.0 micropub-express\/[\d.]+ \(http[^)]+\)$/)
         .get('/token')
         .reply(
           200,
@@ -294,164 +275,134 @@ describe('Micropub API', function () {
           { 'Content-Type': 'application/x-www-form-urlencoded' }
         );
 
-      asyncRequest(mock, done);
+      await asyncRequest(nockMock);
     });
   });
 
   describe('create', function () {
     /** @type {NockScope} */
-    let mock;
+    let nockMock;
 
     beforeEach(function () {
-      mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+      nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
     });
 
-    it('should require h-field', function (done) {
-      agent
+    it('should require h-field', async function () {
+      await agent
         .post('/micropub')
         .set('Authorization', 'Bearer abc123')
-        .expect(400, badRequestBody('Missing "h" value.'), function (err) {
-          mock.done();
-          done(err);
-        });
+        .expect(400, badRequestBody('Missing "h" value.'));
+      nockMock.done();
     });
 
-    it('should refuse update requests', function (done) {
-      asyncRequest(mock, done, 501, { 'mp-action': 'edit' }, badRequestBody('This endpoint does not yet support updates.'));
+    it('should refuse update requests', async function () {
+      await asyncRequest(nockMock, 501, { 'mp-action': 'edit' }, badRequestBody('This endpoint does not yet support updates.'));
     });
 
-    it('should fail when no properties', function (done) {
-      asyncRequest(mock, done, 400, {
+    it('should fail when no properties', async function () {
+      await asyncRequest(nockMock, 400, {
         h: 'entry'
       }, badRequestBody('Not finding any properties.'));
     });
 
-    it('should require authorization', function (done) {
-      agent
+    it('should require authorization', async function () {
+      await agent
         .post('/micropub')
-        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), function (err) {
-          if (err) { return done(err); }
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'));
 
-          handlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 0);
     });
 
-    it('should not call handle on GET', function (done) {
-      agent
+    it('should not call handle on GET', async function () {
+      await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
-        .expect(200, function (err) {
-          if (err) { return done(err); }
+        .expect(200);
 
-          handlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 0);
     });
 
-    it('should call handle on content', function (done) {
-      doRequest()
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+    it('should call handle on content', async function () {
+      const res = await doRequest()
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.should.have.been.calledOnce;
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              content: ['hello world']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          content: ['hello world']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should call handle on like-of', function (done) {
-      doRequest(false, false, 201, {
+    it('should call handle on like-of', async function () {
+      await doRequest(false, false, 201, {
         h: 'entry',
         'like-of': 'http://example.com/liked/post'
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.callCount.should.equal(1);
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              'like-of': ['http://example.com/liked/post']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          'like-of': ['http://example.com/liked/post']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should handle totally random properties', function (done) {
-      doRequest(false, false, 201, {
+    it('should handle totally random properties', async function () {
+      await doRequest(false, false, 201, {
         h: 'entry',
         foo: '123'
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.callCount.should.equal(1);
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              foo: ['123']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          foo: ['123']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should call handle on HTML content', function (done) {
-      doRequest(false, false, 201, {
+    it('should call handle on HTML content', async function () {
+      await doRequest(false, false, 201, {
         h: 'entry',
         'content[html]': '<strong>Hi</strong>'
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.should.have.been.calledOnce;
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              content: [{
-                html: '<strong>Hi</strong>'
-              }]
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          content: [{
+            html: '<strong>Hi</strong>'
+          }]
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should call handle on JSON payload', function (done) {
-      doRequest(undefined, undefined, undefined, function (req) {
+    it('should call handle on JSON payload', async function () {
+      await doRequest(undefined, undefined, undefined, function (req) {
         return req.type('json').send({
           type: ['h-entry'],
           properties: {
@@ -459,83 +410,68 @@ describe('Micropub API', function () {
           }
         });
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.callCount.should.equal(1);
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              content: ['hello world']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          content: ['hello world']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should call handle on multipart payload', function (done) {
-      doRequest(undefined, undefined, undefined, function (req) {
+    it('should call handle on multipart payload', async function () {
+      await doRequest(undefined, undefined, undefined, function (req) {
         return req
           .field('h', 'entry')
           .field('content', 'hello world');
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.should.have.been.calledOnce;
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              content: ['hello world']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          content: ['hello world']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should transform mp-* properties', function (done) {
-      doRequest(false, false, 201, {
+    it('should transform mp-* properties', async function () {
+      await doRequest(false, false, 201, {
         h: 'entry',
         'mp-foo': 'bar',
         'like-of': 'http://example.com/liked/post'
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.callCount.should.equal(1);
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              'like-of': ['http://example.com/liked/post']
-            },
-            mp: {
-              foo: ['bar']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          'like-of': ['http://example.com/liked/post']
+        },
+        mp: {
+          foo: ['bar']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
 
-    it('should transform mp-* properties in JSON payload', function (done) {
-      doRequest(undefined, undefined, undefined, function (req) {
+    it('should transform mp-* properties in JSON payload', async function () {
+      await doRequest(undefined, undefined, undefined, function (req) {
         return req.type('json').send({
           type: ['h-entry'],
           'mp-foo': 'bar',
@@ -544,51 +480,42 @@ describe('Micropub API', function () {
           }
         });
       })
-        .expect('Location', 'http://example.com/new/post')
-        .end(function (err) {
-          if (err) { return done(err); }
+        .expect('Location', 'http://example.com/new/post');
 
-          mock.done();
+      nockMock.done();
 
-          handlerStub.callCount.should.equal(1);
-          handlerStub.firstCall.args.should.have.length(2);
-          handlerStub.firstCall.args[0].should.deep.equal({
-            type: ['h-entry'],
-            properties: {
-              content: ['hello world']
-            },
-            mp: {
-              foo: ['bar']
-            }
-          });
-          handlerStub.firstCall.args[1].should.be.an('object');
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.calls[0].arguments.length, 2);
+      assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
+        type: ['h-entry'],
+        properties: {
+          content: ['hello world']
+        },
+        mp: {
+          foo: ['bar']
+        }
+      });
+      assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
   });
 
   describe('query', function () {
     /** @type {NockScope} */
-    let mock;
+    let nockMock;
 
     beforeEach(function () {
-      mock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
+      nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post,misc');
     });
 
-    it('should fail on POST', function (done) {
-      agent
+    it('should fail on POST', async function () {
+      await agent
         .post('/micropub')
         .query({ q: 'syndicate-to' })
         .set('Authorization', 'Bearer ' + token)
         .send()
-        .expect(405, badRequestBody('Queries only supported with GET method'), function (err) {
-          if (err) { return done(err); }
+        .expect(405, badRequestBody('Queries only supported with GET method'));
 
-          queryHandlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 0);
     });
 
     it('should fail on invalid query format', async () => {
@@ -599,10 +526,10 @@ describe('Micropub API', function () {
         .send()
         .expect(400, badRequestBody('Invalid q parameter format'));
 
-      queryHandlerStub.should.not.have.been.called;
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 0);
     });
 
-    it('should fail when no queryHandler has been specified', function (done) {
+    it('should fail when no queryHandler has been specified', async function () {
       app = express();
       app.use('/micropub', micropub({
         logger: customLogger,
@@ -612,30 +539,26 @@ describe('Micropub API', function () {
 
       agent = request.agent(app);
 
-      agent
+      await agent
         .get('/micropub')
         .query({ q: 'syndicate-to' })
         .set('Authorization', 'Bearer ' + token)
         .send()
-        .expect(400, badRequestBody('Queries are not supported'), done);
+        .expect(400, badRequestBody('Queries are not supported'));
     });
 
-    it('should require authorization', function (done) {
-      agent
+    it('should require authorization', async function () {
+      await agent
         .get('/micropub')
         .query({ q: 'syndicate-to' })
         .send()
-        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'), function (err) {
-          if (err) { return done(err); }
+        .expect(401, badRequestBody('Missing "Authorization" header or body parameter.'));
 
-          queryHandlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 0);
     });
 
-    it('should fail when queryHandler doesn\'t support the sent query', function (done) {
-      queryHandlerStub = sinon.stub().resolves(false);
+    it('should fail when queryHandler doesn\'t support the sent query', async function () {
+      queryHandlerStub = mock.fn(() => Promise.resolve(false));
 
       app = express();
       app.use('/micropub', micropub({
@@ -647,25 +570,20 @@ describe('Micropub API', function () {
 
       agent = request.agent(app);
 
-      agent
+      await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .query({ q: 'syndicate-to' })
         .send()
-        .expect(400, badRequestBody('Query type is not supported'), function (err) {
-          if (err) { return done(err); }
+        .expect(400, badRequestBody('Query type is not supported'));
 
-          mock.done();
+      nockMock.done();
 
-          queryHandlerStub.should.have.been.calledOnce;
-
-          handlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.callCount(), 0);
     });
 
-    it('should support empty config even when no queryHandler has been specified', () => {
+    it('should support empty config even when no queryHandler has been specified', async () => {
       app = express();
       app.use('/micropub', micropub({
         logger: customLogger,
@@ -673,7 +591,7 @@ describe('Micropub API', function () {
         tokenReference
       }));
 
-      return request(app)
+      await request(app)
         .get('/micropub')
         .query({ q: 'config' })
         .set('Authorization', 'Bearer ' + token)
@@ -681,8 +599,8 @@ describe('Micropub API', function () {
         .expect(200, {});
     });
 
-    it('should support empty config even when queryHandler doesn\'t support the sent query', () => {
-      queryHandlerStub = sinon.stub().resolves(false);
+    it('should support empty config even when queryHandler doesn\'t support the sent query', async () => {
+      queryHandlerStub = mock.fn(() => Promise.resolve(false));
 
       app = express();
       app.use('/micropub', micropub({
@@ -692,130 +610,121 @@ describe('Micropub API', function () {
         tokenReference
       }));
 
-      return request(app)
+      await request(app)
         .get('/micropub')
         .query({ q: 'config' })
         .set('Authorization', 'Bearer ' + token)
         .send()
-        .expect(200, {})
-        .then(() => {
-          mock.done();
-          queryHandlerStub.should.have.been.calledOnce;
-          handlerStub.should.not.have.been.called;
-        });
+        .expect(200, {});
+
+      nockMock.done();
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 1);
+      assert.strictEqual(handlerStub.mock.callCount(), 0);
     });
 
-    it('should return form encoded response', function (done) {
-      agent
+    it('should return form encoded response', async function () {
+      const res = await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .set('Accept', 'application/x-www-form-urlencoded')
         .query({ q: 'syndicate-to' })
         .send()
         .expect(200)
-        .expect('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8')
-        .end(function (err, res) {
-          if (err) { return done(err); }
+        .expect('Content-Type', 'application/x-www-form-urlencoded; charset=utf-8');
 
-          mock.done();
+      nockMock.done();
 
-          ({
-            'syndicate-to[]': [
-              'https://example.com/twitter',
-              'https://example.com/fb'
-            ]
-          }).should.deep.equal(qs.parse(res.text));
+      assert.deepStrictEqual(
+        { ...parse(res.text) },
+        {
+          'syndicate-to[]': [
+            'https://example.com/twitter',
+            'https://example.com/fb'
+          ]
+        }
+      );
 
-          queryHandlerStub.should.have.been.calledOnce;
-          queryHandlerStub.firstCall.args.should.have.length(2);
-          queryHandlerStub.firstCall.args[0].should.equal('syndicate-to');
-          queryHandlerStub.firstCall.args[1].should.be.an('object');
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 1);
+      assert.strictEqual(queryHandlerStub.mock.calls[0].arguments.length, 2);
+      assert.strictEqual(queryHandlerStub.mock.calls[0].arguments[0], 'syndicate-to');
+      assert.strictEqual(typeof queryHandlerStub.mock.calls[0].arguments[1], 'object');
 
-          handlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 0);
     });
 
-    it('should support json response', function (done) {
-      agent
+    it('should support json response', async function () {
+      const res = await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .set('Accept', 'application/json')
         .query({ q: 'syndicate-to' })
         .send()
         .expect(200)
-        .expect('Content-Type', 'application/json; charset=utf-8')
-        .end(function (err, res) {
-          if (err) { return done(err); }
+        .expect('Content-Type', 'application/json; charset=utf-8');
 
-          mock.done();
+      nockMock.done();
 
-          JSON.parse(res.text).should.deep.equal({
-            'syndicate-to': [
-              'https://example.com/twitter',
-              'https://example.com/fb'
-            ]
-          });
+      assert.deepStrictEqual(
+        JSON.parse(res.text),
+        {
+          'syndicate-to': [
+            'https://example.com/twitter',
+            'https://example.com/fb'
+          ]
+        }
+      );
 
-          queryHandlerStub.should.have.been.calledOnce;
-          queryHandlerStub.firstCall.args.should.have.length(2);
-          queryHandlerStub.firstCall.args[0].should.equal('syndicate-to');
-          queryHandlerStub.firstCall.args[1].should.be.an('object');
+      assert.strictEqual(queryHandlerStub.mock.callCount(), 1);
+      assert.strictEqual(queryHandlerStub.mock.calls[0].arguments.length, 2);
+      assert.strictEqual(queryHandlerStub.mock.calls[0].arguments[0], 'syndicate-to');
+      assert.strictEqual(typeof queryHandlerStub.mock.calls[0].arguments[1], 'object');
 
-          handlerStub.should.not.have.been.called;
-
-          done();
-        });
+      assert.strictEqual(handlerStub.mock.callCount(), 0);
     });
 
-    it('should prefer json', function (done) {
-      agent
+    it('should prefer json', async function () {
+      const res = await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .query({ q: 'syndicate-to' })
         .send()
         .expect(200)
-        .expect('Content-Type', 'application/json; charset=utf-8')
-        .end(function (err, res) {
-          if (err) { return done(err); }
+        .expect('Content-Type', 'application/json; charset=utf-8');
 
-          mock.done();
+      nockMock.done();
 
-          JSON.parse(res.text).should.deep.equal({
-            'syndicate-to': [
-              'https://example.com/twitter',
-              'https://example.com/fb'
-            ]
-          });
-
-          done();
-        });
+      assert.deepStrictEqual(
+        JSON.parse(res.text),
+        {
+          'syndicate-to': [
+            'https://example.com/twitter',
+            'https://example.com/fb'
+          ]
+        }
+      );
     });
 
-    it('should use json when no matches are detected', function (done) {
-      agent
+    it('should use json when no matches are detected', async function () {
+      const res = await agent
         .get('/micropub')
         .set('Authorization', 'Bearer ' + token)
         .set('Accept', 'text/plain')
         .query({ q: 'syndicate-to' })
         .send()
         .expect(200)
-        .expect('Content-Type', 'application/json; charset=utf-8')
-        .end(function (err, res) {
-          if (err) { return done(err); }
+        .expect('Content-Type', 'application/json; charset=utf-8');
 
-          mock.done();
+      nockMock.done();
 
-          JSON.parse(res.text).should.deep.equal({
-            'syndicate-to': [
-              'https://example.com/twitter',
-              'https://example.com/fb'
-            ]
-          });
-
-          done();
-        });
+      assert.deepStrictEqual(
+        JSON.parse(res.text),
+        {
+          'syndicate-to': [
+            'https://example.com/twitter',
+            'https://example.com/fb'
+          ]
+        }
+      );
     });
   });
 });

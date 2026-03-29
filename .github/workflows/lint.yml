@@ -1,15 +1,15 @@
 name: Linting
 
-on: [push]
+on:
+  push:
+    branches: [main, master]
+    tags: ['*']
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
 
 jobs:
   lint:
-    name: Static code analysis
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '12'
-      - run: npm install
-      - run: npm run check
+    uses: voxpelli/ghatemplates/.github/workflows/lint.yml@main

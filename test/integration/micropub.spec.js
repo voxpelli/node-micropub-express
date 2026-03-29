@@ -3,8 +3,6 @@
 
 import { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from 'node:querystring';
-
 import nock from 'nock';
 import request from 'supertest';
 import createBunyanAdaptor from 'bunyan-adaptor';
@@ -14,6 +12,50 @@ import micropub from '../../index.js';
 
 /** @typedef {import('nock').Scope} NockScope */
 
+/**
+ * @param {string} str
+ * @returns {Record<string, string | string[]>}
+ */
+function parseQueryString (str) {
+  const params = new URLSearchParams(str);
+  /** @type {Record<string, string | string[]>} */
+  const result = {};
+
+  for (const key of new Set(params.keys())) {
+    const values = params.getAll(key);
+    result[key] = values.length === 1 ? /** @type {string} */ (values[0]) : values;
+  }
+
+  return result;
+}
+
+/**
+ * @param {number} code
+ * @param {string} response
+ * @returns {NockScope}
+ */
+function mockTokenEndpoint (code, response) {
+  return nock('https://tokens.indieauth.com/')
+    .get('/token')
+    .reply(
+      code || 200,
+      response || 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post',
+      { 'Content-Type': 'application/x-www-form-urlencoded' }
+    );
+}
+
+/**
+ * @template {string} T
+ * @param {T} message
+ * @returns {{ error: 'invalid_request', error_description: T }}
+ */
+function badRequestBody (message) {
+  return /** @type {{ error: 'invalid_request', error_description: T }} */ ({
+    error: 'invalid_request',
+    error_description: message,
+  });
+}
+
 describe('Micropub API', function () {
   let app;
   /** @type {import('supertest').Agent} */
@@ -22,70 +64,39 @@ describe('Micropub API', function () {
   let token;
   /** @type {import('../../index.js').TokenReferenceOption} */
   let tokenReference;
-  /** @type {ReturnType<typeof mock.fn>} */
+  /** @type {any} */
   let handlerStub;
-  /** @type {ReturnType<typeof mock.fn>} */
+  /** @type {any} */
   let queryHandlerStub;
 
   const customLogger = createBunyanAdaptor({ verbose: function () {} });
 
   /**
-   * @param {number} code
-   * @param {string} response
-   * @returns {NockScope}
-   */
-  const mockTokenEndpoint = function (code, response) {
-    return nock('https://tokens.indieauth.com/')
-      .get('/token')
-      .reply(
-        code || 200,
-        response || 'me=http%3A%2F%2Fkodfabrik.se%2F&scope=post',
-        { 'Content-Type': 'application/x-www-form-urlencoded' }
-      );
-  };
-
-  /**
-   * @template {string} T
-   * @param {T} message
-   * @returns {{ error: 'invalid_request', error_description: T }}
-   */
-  const badRequestBody = (message) => ({
-    error: 'invalid_request',
-    error_description: message
-  });
-
-  /**
    * @param {undefined|false} [_mock]
    * @param {undefined|false} [_done]
    * @param {number} [code]
-   * @param {string|Object<string,any>|((req: import('supertest').Test) => import('supertest').Test)} [content]
+   * @param {string|Record<string,any>|((req: import('supertest').Test) => import('supertest').Test)} [content]
    * @param {*} [response]
    * @returns {import('supertest').Test}
    */
-  const doRequest = function (_mock, _done, code, content, response) {
+  function doRequest (_mock, _done, code, content, response) {
     let req = agent
       .post('/micropub')
       .set('Authorization', 'Bearer ' + token);
 
-    if (typeof content === 'function') {
-      req = content(req);
-    } else {
-      req = req
+    req = typeof content === 'function'
+      ? content(req)
+      : req
         .type('form')
         .send(content || {
           h: 'entry',
-          content: 'hello world'
+          content: 'hello world',
         });
-    }
 
-    if (response) {
-      req = req.expect(code || 201, response);
-    } else {
-      req = req.expect(code || 201);
-    }
+    req = response ? req.expect(code || 201, response) : req.expect(code || 201);
 
     return req;
-  };
+  }
 
   /**
    * @param {NockScope|undefined} nockMock
@@ -94,11 +105,11 @@ describe('Micropub API', function () {
    * @param {*} [response]
    * @returns {Promise<void>}
    */
-  const asyncRequest = async function (nockMock, code, content, response) {
+  async function asyncRequest (nockMock, code, content, response) {
     const req = doRequest(undefined, undefined, code, content, response);
     await req;
     if (nockMock) { nockMock.done(); }
-  };
+  }
 
   beforeEach(function () {
     nock.disableNetConnect();
@@ -111,15 +122,15 @@ describe('Micropub API', function () {
 
     tokenReference = {
       me: 'http://kodfabrik.se/',
-      endpoint: 'https://tokens.indieauth.com/token'
+      endpoint: 'https://tokens.indieauth.com/token',
     };
 
     handlerStub = mock.fn(() => Promise.resolve({
-      url: 'http://example.com/new/post'
+      url: 'http://example.com/new/post',
     }));
 
     queryHandlerStub = mock.fn(() => Promise.resolve({
-      'syndicate-to': ['https://example.com/twitter', 'https://example.com/fb']
+      'syndicate-to': ['https://example.com/twitter', 'https://example.com/fb'],
     }));
 
     app = express();
@@ -127,7 +138,7 @@ describe('Micropub API', function () {
       logger: customLogger,
       handler: handlerStub,
       queryHandler: queryHandlerStub,
-      tokenReference
+      tokenReference,
     }));
 
     agent = request.agent(app);
@@ -196,7 +207,7 @@ describe('Micropub API', function () {
       const nockMock = mockTokenEndpoint(400, 'error=unauthorized&error_description=The+token+provided+was+malformed');
       await asyncRequest(nockMock, 403, undefined, {
         error: 'forbidden',
-        error_description: 'Invalid token'
+        error_description: 'Invalid token',
       });
     });
 
@@ -204,7 +215,7 @@ describe('Micropub API', function () {
       const nockMock = mockTokenEndpoint(200, 'me=http%3A%2F%2Fvoxpelli.com%2F&scope=post');
       await asyncRequest(nockMock, 403, undefined, {
         error: 'forbidden',
-        error_description: 'Token "me" didn\'t match any valid reference. Got: "http://voxpelli.com/"'
+        error_description: 'Token "me" didn\'t match any valid reference. Got: "http://voxpelli.com/"',
       });
     });
 
@@ -213,7 +224,7 @@ describe('Micropub API', function () {
       await asyncRequest(nockMock, 401, undefined, {
         error: 'insufficient_scope',
         error_description: 'Missing "create" scope, instead got: misc',
-        scope: 'create'
+        scope: 'create',
       });
     });
 
@@ -240,9 +251,9 @@ describe('Micropub API', function () {
         tokenReference: function () {
           return [
             { endpoint: 'https://tokens.indieauth.com/token', me: 'http://kodfabrik.se/' },
-            { endpoint: 'https://tokens.indieauth.com/token', me: 'http://example.com/' }
+            { endpoint: 'https://tokens.indieauth.com/token', me: 'http://example.com/' },
           ];
-        }
+        },
       }));
 
       agent = request.agent(app);
@@ -260,8 +271,8 @@ describe('Micropub API', function () {
         userAgent: 'foobar/1.0',
         tokenReference: {
           me: 'http://kodfabrik.se/',
-          endpoint: 'https://tokens.indieauth.com/token'
-        }
+          endpoint: 'https://tokens.indieauth.com/token',
+        },
       }));
 
       agent = request.agent(app);
@@ -301,7 +312,7 @@ describe('Micropub API', function () {
 
     it('should fail when no properties', async function () {
       await asyncRequest(nockMock, 400, {
-        h: 'entry'
+        h: 'entry',
       }, badRequestBody('Not finding any properties.'));
     });
 
@@ -323,7 +334,7 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on content', async function () {
-      const res = await doRequest()
+      await doRequest()
         .expect('Location', 'http://example.com/new/post');
 
       nockMock.done();
@@ -333,8 +344,8 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          content: ['hello world']
-        }
+          content: ['hello world'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -342,7 +353,7 @@ describe('Micropub API', function () {
     it('should call handle on like-of', async function () {
       await doRequest(false, false, 201, {
         h: 'entry',
-        'like-of': 'http://example.com/liked/post'
+        'like-of': 'http://example.com/liked/post',
       })
         .expect('Location', 'http://example.com/new/post');
 
@@ -353,8 +364,8 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          'like-of': ['http://example.com/liked/post']
-        }
+          'like-of': ['http://example.com/liked/post'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -362,7 +373,7 @@ describe('Micropub API', function () {
     it('should handle totally random properties', async function () {
       await doRequest(false, false, 201, {
         h: 'entry',
-        foo: '123'
+        foo: '123',
       })
         .expect('Location', 'http://example.com/new/post');
 
@@ -373,8 +384,8 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          foo: ['123']
-        }
+          foo: ['123'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -382,7 +393,7 @@ describe('Micropub API', function () {
     it('should call handle on HTML content', async function () {
       await doRequest(false, false, 201, {
         h: 'entry',
-        'content[html]': '<strong>Hi</strong>'
+        'content[html]': '<strong>Hi</strong>',
       })
         .expect('Location', 'http://example.com/new/post');
 
@@ -394,9 +405,9 @@ describe('Micropub API', function () {
         type: ['h-entry'],
         properties: {
           content: [{
-            html: '<strong>Hi</strong>'
-          }]
-        }
+            html: '<strong>Hi</strong>',
+          }],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -406,8 +417,8 @@ describe('Micropub API', function () {
         return req.type('json').send({
           type: ['h-entry'],
           properties: {
-            content: ['hello world']
-          }
+            content: ['hello world'],
+          },
         });
       })
         .expect('Location', 'http://example.com/new/post');
@@ -419,8 +430,8 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          content: ['hello world']
-        }
+          content: ['hello world'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -440,8 +451,8 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          content: ['hello world']
-        }
+          content: ['hello world'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -450,7 +461,7 @@ describe('Micropub API', function () {
       await doRequest(false, false, 201, {
         h: 'entry',
         'mp-foo': 'bar',
-        'like-of': 'http://example.com/liked/post'
+        'like-of': 'http://example.com/liked/post',
       })
         .expect('Location', 'http://example.com/new/post');
 
@@ -461,11 +472,11 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          'like-of': ['http://example.com/liked/post']
+          'like-of': ['http://example.com/liked/post'],
         },
         mp: {
-          foo: ['bar']
-        }
+          foo: ['bar'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -476,8 +487,8 @@ describe('Micropub API', function () {
           type: ['h-entry'],
           'mp-foo': 'bar',
           properties: {
-            content: ['hello world']
-          }
+            content: ['hello world'],
+          },
         });
       })
         .expect('Location', 'http://example.com/new/post');
@@ -489,11 +500,11 @@ describe('Micropub API', function () {
       assert.deepStrictEqual(handlerStub.mock.calls[0].arguments[0], {
         type: ['h-entry'],
         properties: {
-          content: ['hello world']
+          content: ['hello world'],
         },
         mp: {
-          foo: ['bar']
-        }
+          foo: ['bar'],
+        },
       });
       assert.strictEqual(typeof handlerStub.mock.calls[0].arguments[1], 'object');
     });
@@ -534,7 +545,7 @@ describe('Micropub API', function () {
       app.use('/micropub', micropub({
         logger: customLogger,
         handler: handlerStub,
-        tokenReference
+        tokenReference,
       }));
 
       agent = request.agent(app);
@@ -565,7 +576,7 @@ describe('Micropub API', function () {
         logger: customLogger,
         handler: handlerStub,
         queryHandler: queryHandlerStub,
-        tokenReference
+        tokenReference,
       }));
 
       agent = request.agent(app);
@@ -588,7 +599,7 @@ describe('Micropub API', function () {
       app.use('/micropub', micropub({
         logger: customLogger,
         handler: handlerStub,
-        tokenReference
+        tokenReference,
       }));
 
       await request(app)
@@ -607,7 +618,7 @@ describe('Micropub API', function () {
         logger: customLogger,
         handler: handlerStub,
         queryHandler: queryHandlerStub,
-        tokenReference
+        tokenReference,
       }));
 
       await request(app)
@@ -635,12 +646,12 @@ describe('Micropub API', function () {
       nockMock.done();
 
       assert.deepStrictEqual(
-        { ...parse(res.text) },
+        parseQueryString(res.text),
         {
           'syndicate-to[]': [
             'https://example.com/twitter',
-            'https://example.com/fb'
-          ]
+            'https://example.com/fb',
+          ],
         }
       );
 
@@ -669,8 +680,8 @@ describe('Micropub API', function () {
         {
           'syndicate-to': [
             'https://example.com/twitter',
-            'https://example.com/fb'
-          ]
+            'https://example.com/fb',
+          ],
         }
       );
 
@@ -698,8 +709,8 @@ describe('Micropub API', function () {
         {
           'syndicate-to': [
             'https://example.com/twitter',
-            'https://example.com/fb'
-          ]
+            'https://example.com/fb',
+          ],
         }
       );
     });
@@ -721,8 +732,8 @@ describe('Micropub API', function () {
         {
           'syndicate-to': [
             'https://example.com/twitter',
-            'https://example.com/fb'
-          ]
+            'https://example.com/fb',
+          ],
         }
       );
     });

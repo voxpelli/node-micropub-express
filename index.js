@@ -19,16 +19,24 @@ import {
 } from './lib/core.js';
 import { matchAnyTokenReference } from './lib/token.js';
 
+const require = createRequire(import.meta.url);
+/** @type {{ name: string, version: string, homepage?: string }} */
+const pkg = require('./package.json');
+
 /** @typedef {import('./lib/core.js').TokenReference} TokenReference */
-/** @typedef {import('./lib/core.js').MaybeArray} MaybeArray */
-/** @typedef {import('./lib/core.js').MaybePromised} MaybePromised */
+/**
+ * @template T
+ * @typedef {import('./lib/core.js').MaybeArray<T>} MaybeArray
+ */
+/**
+ * @template T
+ * @typedef {import('./lib/core.js').MaybePromised<T>} MaybePromised
+ */
 /** @typedef {import('./lib/core.js').ParsedMicropubStructure} ParsedMicropubStructure */
 /** @typedef {import('bunyan-adaptor').BunyanLite} BunyanLite */
 /** @typedef {import('express').Request} Request */
 /** @typedef {import('express').Response} Response */
 
-const require = createRequire(import.meta.url);
-const pkg = require('./package.json');
 const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
 const getBunyanAdaptor = (function () {
@@ -45,12 +53,12 @@ const getBunyanAdaptor = (function () {
  * @param {string} [reason]
  * @param {number} [code]
  */
-const badRequest = function (res, reason, code) {
+function badRequest (res, reason, code) {
   res.status(code || 400).json({
     error: 'invalid_request',
-    error_description: reason
+    error_description: reason,
   });
-};
+}
 
 /** @typedef {(req?: Request)=>(import('./lib/core.js').MaybePromised<import('./lib/core.js').MaybeArray<TokenReference>>)} TokenReferenceResolver */
 /** @typedef {TokenReferenceResolver|import('./lib/core.js').MaybeArray<TokenReference>} TokenReferenceOption */
@@ -68,11 +76,11 @@ const badRequest = function (res, reason, code) {
  * @param {MicropubExpressOptions} options
  * @returns {import('express').Router}
  */
-const micropubExpress = function (options) {
+function micropubExpress (options) {
   const {
-    logger = getBunyanAdaptor(),
     handler,
-    queryHandler
+    logger = getBunyanAdaptor(),
+    queryHandler,
   } = options;
 
   if (!options.tokenReference || !['function', 'object'].includes(typeof options.tokenReference)) {
@@ -85,15 +93,16 @@ const micropubExpress = function (options) {
 
   const userAgent = ((options.userAgent || '') + ' ' + defaultUserAgent).trim();
 
-  /** @type {TokenReferenceResolver}  */
-  // @ts-ignore
-  const tokenReference = typeof options.tokenReference === 'function' ? options.tokenReference : async () => options.tokenReference;
+  /** @type {TokenReferenceResolver} */
+  const tokenReference = typeof options.tokenReference === 'function'
+    ? options.tokenReference
+    : /** @returns {MaybeArray<TokenReference>} */ () => /** @type {MaybeArray<TokenReference>} */ (options.tokenReference);
 
   // Router setup
 
   const router = express.Router({
     caseSensitive: true,
-    mergeParams: true
+    mergeParams: true,
   });
 
   router.use(bodyParser.urlencoded({ extended: false }));
@@ -105,49 +114,54 @@ const micropubExpress = function (options) {
   router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(type => ({ name: type }))));
 
   // Ensure the needed parts are there
-  router.use((req, res, next) => {
-    logger.debug({ body: req.body }, 'Received a request');
+  router.use(
+    /**
+     * @param {Request} req
+     * @param {Response} res
+     * @param {import('express').NextFunction} next
+     * @returns {void}
+     */
+    (req, res, next) => {
+      logger.debug({ body: req.body }, 'Received a request');
 
-    // body-parser v2 leaves req.body as undefined for empty/missing bodies
-    if (!req.body) {
-      req.body = {};
-    }
-
-    if (req.body && Object.keys(req.body).length > 0) {
-      if (req.is('json')) {
-        req.body = processJsonEncodedBody(req.body);
-      } else {
-        req.body = processFormEncodedBody(req.body);
+      // body-parser v2 leaves req.body as undefined for empty/missing bodies
+      if (!req.body) {
+        req.body = {};
       }
-    }
 
-    if (req.files && !Array.isArray(req.files) && Object.getOwnPropertyNames(req.files)[0]) {
-      req.body = processFiles(req.body, req.files, logger);
-    }
+      if (req.body && Object.keys(req.body).length > 0) {
+        req.body = req.is('json') ? processJsonEncodedBody(req.body) : processFormEncodedBody(req.body);
+      }
 
-    logger.debug({ body: req.body }, 'Processed a request');
+      if (req.files && !Array.isArray(req.files) && Object.getOwnPropertyNames(req.files)[0]) {
+        req.body = processFiles(req.body, req.files, logger);
+      }
 
-    /** @type {string|undefined} */
-    const token = (
-      req.headers.authorization
-        ? req.headers.authorization.trim().split(/\s+/)[1]
-        : (
-          req.body && req.body.access_token
-            ? req.body.access_token
-            : undefined
-        )
-    );
+      logger.debug({ body: req.body }, 'Processed a request');
 
-    if (token === undefined || !token) {
-      logger.debug('Got a request with a missing token');
-      return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
-    }
+      /** @type {ParsedMicropubStructure} */
+      const body = req.body;
 
-    logger.debug('Found authorization token');
+      /** @type {string|undefined} */
+      const token = (
+        req.headers.authorization
+          ? req.headers.authorization.trim().split(/\s+/)[1]
+          : (
+              body && body.access_token
+                ? body.access_token
+                : undefined
+            )
+      );
 
-    // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
-    Promise.resolve()
-      .then(async () => {
+      if (token === undefined || !token) {
+        logger.debug('Got a request with a missing token');
+        return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
+      }
+
+      logger.debug('Found authorization token');
+
+      // Using async IIFE — Express 4.x doesn't support async middleware natively
+      (async () => {
         const resolvedTokenReference = await tokenReference(req);
 
         const valid = await matchAnyTokenReference(token, ensureArrayAndCloneIt(resolvedTokenReference), userAgent, logger);
@@ -159,39 +173,48 @@ const micropubExpress = function (options) {
           return res.status(401).json({
             error: 'insufficient_scope',
             error_description: valid.message,
-            scope: valid.scope
+            scope: valid.scope,
           });
         }
 
         res.status(403).json({
           error: 'forbidden',
-          error_description: valid ? valid.message : undefined
+          error_description: valid ? valid.message : undefined,
         });
-      })
-      .catch(err => {
+        // eslint-disable-next-line promise/prefer-await-to-then -- Express 4.x doesn't support async middleware
+      })().catch(/** @param {Error} err */ (err) => {
         logger.debug(err, 'An error occurred when trying to validate token');
+        // eslint-disable-next-line promise/no-callback-in-promise
         next(new Error("Couldn't validate token", { cause: err }));
       });
-  });
+    }
+  );
 
-  router.get('/', (req, res, next) => {
-    if (Object.keys(req.query).length === 0) {
-      // If a simple GET is performed, then we just want to verify the authorization credentials
-      return res.sendStatus(200);
-    } else if (req.query.q !== undefined) {
-      const query = req.query.q;
+  router.get('/',
+    /**
+     * @param {Request} req
+     * @param {Response} res
+     * @param {import('express').NextFunction} next
+     * @returns {void}
+     */
+    (req, res, next) => {
+      if (Object.keys(req.query).length === 0) {
+        // If a simple GET is performed, then we just want to verify the authorization credentials
+        res.sendStatus(200);
+      } else if (req.query['q'] !== undefined) {
+        const query = req.query['q'];
 
-      if (typeof query !== 'string') {
-        return badRequest(res, 'Invalid q parameter format');
-      }
+        if (typeof query !== 'string') {
+          return badRequest(res, 'Invalid q parameter format');
+        }
 
-      if (!queryHandler) {
-        return query === 'config' ? res.json({}) : badRequest(res, 'Queries are not supported');
-      }
+        if (!queryHandler) {
+          if (query === 'config') { res.json({}); } else { badRequest(res, 'Queries are not supported'); }
+          return;
+        }
 
-      // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
-      Promise.resolve()
-        .then(async () => {
+        // Using async IIFE — Express 4.x doesn't support async middleware natively
+        (async () => {
           const result = await queryHandler(query, req);
 
           if (!result) {
@@ -203,50 +226,63 @@ const micropubExpress = function (options) {
             'application/x-www-form-urlencoded': () => {
               res.type('application/x-www-form-urlencoded').send(queryStringEncodeWithArrayBrackets(result));
             },
-            default: () => { res.json(result); }
+            'default': () => { res.json(result); },
           });
-        })
-        .catch(err => {
+          // eslint-disable-next-line promise/prefer-await-to-then -- Express 4.x doesn't support async middleware
+        })().catch(/** @param {Error} err */ (err) => {
+          // eslint-disable-next-line promise/no-callback-in-promise
           next(new Error('Error in query handling', { cause: err }));
         });
-    } else {
-      return badRequest(res, 'No known query parameters');
+      } else {
+        return badRequest(res, 'No known query parameters');
+      }
     }
-  });
+  );
 
-  router.post('/', (req, res, next) => {
-    if (req.query.q) {
-      return badRequest(res, 'Queries only supported with GET method', 405);
-    } else if (req.body.mp && req.body.mp.action) {
-      return badRequest(res, 'This endpoint does not yet support updates.', 501);
-    } else if (!req.body.type) {
-      return badRequest(res, 'Missing "h" value.');
-    }
+  router.post('/',
+    /**
+     * @param {Request} req
+     * @param {Response} res
+     * @param {import('express').NextFunction} next
+     * @returns {void}
+     */
+    (req, res, next) => {
+      if (req.query['q']) {
+        return badRequest(res, 'Queries only supported with GET method', 405);
+      }
 
-    const data = req.body;
+      /** @type {ParsedMicropubStructure} */
+      const body = req.body;
 
-    if (!data.properties) {
-      return badRequest(res, 'Not finding any properties.');
-    }
+      if (body.mp && body.mp['action']) {
+        return badRequest(res, 'This endpoint does not yet support updates.', 501);
+      } else if (!body.type) {
+        return badRequest(res, 'Missing "h" value.');
+      }
 
-    // Not using "await" here as the middleware shouldn't be returning a Promise, as Express doesn't understand Promises natively yet and it could hide exceptions thrown
-    Promise.resolve()
-      .then(async () => {
-        const result = await handler(data, req);
+      if (!body.properties) {
+        return badRequest(res, 'Not finding any properties.');
+      }
+
+      // Using async IIFE — Express 4.x doesn't support async middleware natively
+      (async () => {
+        const result = await handler(body, req);
 
         if (!result || !result.url) {
           return res.sendStatus(400);
         }
 
         return res.redirect(201, result.url);
-      })
-      .catch(err => {
+        // eslint-disable-next-line promise/prefer-await-to-then -- Express 4.x doesn't support async middleware
+      })().catch(/** @param {Error} err */ (err) => {
+        // eslint-disable-next-line promise/no-callback-in-promise
         next(new Error('Error in post handling', { cause: err }));
       });
-  });
+    }
+  );
 
   return router;
-};
+}
 
 micropubExpress.processFormEncodedBody = processFormEncodedBody;
 micropubExpress.processJsonEncodedBody = processJsonEncodedBody;
@@ -255,4 +291,5 @@ micropubExpress.queryStringEncodeWithArrayBrackets = queryStringEncodeWithArrayB
 export default micropubExpress;
 
 // Also export as named for ESM consumers
-export { processFormEncodedBody, processJsonEncodedBody, queryStringEncodeWithArrayBrackets };
+
+export { processFormEncodedBody, queryStringEncodeWithArrayBrackets, processJsonEncodedBody } from './lib/core.js';

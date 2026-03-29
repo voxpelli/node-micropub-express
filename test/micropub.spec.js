@@ -3,9 +3,24 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parse } from 'node:querystring';
-
 import micropub from '../index.js';
+
+/**
+ * @param {string} str
+ * @returns {Record<string, string | string[]>}
+ */
+function parseQueryString (str) {
+  const params = new URLSearchParams(str);
+  /** @type {Record<string, string | string[]>} */
+  const result = {};
+
+  for (const key of new Set(params.keys())) {
+    const values = params.getAll(key);
+    result[key] = values.length === 1 ? /** @type {string} */ (values[0]) : values;
+  }
+
+  return result;
+}
 
 describe('Micropub Parse', function () {
   describe('Form Encoded Body', function () {
@@ -14,16 +29,16 @@ describe('Micropub Parse', function () {
         micropub.processFormEncodedBody({
           h: 'entry',
           content: 'hello world',
-          'mp-syndicate-to': 'http://twitter.com/voxpelli'
+          'mp-syndicate-to': 'http://twitter.com/voxpelli',
         }),
         {
           type: ['h-entry'],
           properties: {
-            content: ['hello world']
+            content: ['hello world'],
           },
           mp: {
-            'syndicate-to': ['http://twitter.com/voxpelli']
-          }
+            'syndicate-to': ['http://twitter.com/voxpelli'],
+          },
         }
       );
     });
@@ -33,14 +48,14 @@ describe('Micropub Parse', function () {
         micropub.processFormEncodedBody({
           h: 'entry',
           content: 'hello world',
-          'category[]': ['foo', 'bar']
+          'category[]': ['foo', 'bar'],
         }),
         {
           type: ['h-entry'],
           properties: {
             content: ['hello world'],
-            category: ['foo', 'bar']
-          }
+            category: ['foo', 'bar'],
+          },
         }
       );
     });
@@ -49,13 +64,13 @@ describe('Micropub Parse', function () {
       assert.deepStrictEqual(
         micropub.processFormEncodedBody({
           h: 'entry',
-          'content[html]': 'hello world'
+          'content[html]': 'hello world',
         }),
         {
           type: ['h-entry'],
           properties: {
-            content: [{ html: 'hello world' }]
-          }
+            content: [{ html: 'hello world' }],
+          },
         }
       );
     });
@@ -68,17 +83,17 @@ describe('Micropub Parse', function () {
           type: ['h-entry'],
           'mp-action': 'edit',
           properties: {
-            content: ['hello world']
-          }
+            content: ['hello world'],
+          },
         }),
         {
           type: ['h-entry'],
           properties: {
-            content: ['hello world']
+            content: ['hello world'],
           },
           mp: {
-            action: ['edit']
-          }
+            action: ['edit'],
+          },
         }
       );
     });
@@ -89,15 +104,15 @@ describe('Micropub Parse', function () {
           type: ['h-entry'],
           properties: {
             content: ['hello world'],
-            url: ['http://example.com/']
-          }
+            url: ['http://example.com/'],
+          },
         }),
         {
           type: ['h-entry'],
           url: 'http://example.com/',
           properties: {
-            content: ['hello world']
-          }
+            content: ['hello world'],
+          },
         }
       );
     });
@@ -108,17 +123,17 @@ describe('Micropub Parse', function () {
       const result = micropub.queryStringEncodeWithArrayBrackets({
         'syndicate-to': [
           'foo',
-          'bar'
-        ]
+          'bar',
+        ],
       });
 
       assert.deepStrictEqual(
-        Object.assign({}, parse(result)),
+        parseQueryString(result),
         {
           'syndicate-to[]': [
             'foo',
-            'bar'
-          ]
+            'bar',
+          ],
         }
       );
     });
@@ -133,18 +148,18 @@ describe('Micropub Parse', function () {
         bar: [
           'foo',
           { abc: 'xyc' },
-          { abc: '789' }
-        ]
+          { abc: '789' },
+        ],
       });
 
       assert.deepStrictEqual(
-        Object.assign({}, parse(result)),
+        parseQueryString(result),
         {
           foo: '123',
           abc: 'true',
           xyz: '',
           'bar[]': 'foo',
-          'bar[][abc]': ['xyc', '789']
+          'bar[][abc]': ['xyc', '789'],
         }
       );
     });
@@ -155,13 +170,13 @@ describe('Micropub Parse', function () {
           micropub.queryStringEncodeWithArrayBrackets({
             'syndicate-to': [
               'foo',
-              () => {}
-            ]
+              () => {},
+            ],
           });
         },
         {
           name: 'TypeError',
-          message: 'Invalid data type encountered: function'
+          message: 'Invalid data type encountered: function',
         }
       );
     });

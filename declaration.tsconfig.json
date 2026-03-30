@@ -1,10 +1,9 @@
 {
   "extends": "./tsconfig",
-  "exclude": [
-    "test/**/*.js"
-  ],
+  "exclude": ["test/**/*.js"],
   "compilerOptions": {
     "declaration": true,
+    "declarationMap": true,
     "noEmit": false,
     "emitDeclarationOnly": true
   }

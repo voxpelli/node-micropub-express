@@ -1,3 +1,18 @@
+## 1.0.0
+
+* **Breaking change:** Now requires Node.js ^20.19.0 || ^22.13.0 || >=24
+* **Breaking change:** Converted to ESM (`"type": "module"`) — use `import` instead of `require`
+* **Breaking change:** Replaced `node-fetch` with native `fetch()` (Node 20+)
+* **Breaking change:** Replaced `verror` with native `Error({ cause })`
+* **Improvements:** Extracted core logic into `lib/` for framework-agnostic reuse (Fastify preparation)
+* **Improvements:** Added `micropub-express/core` export with parsing and token utilities
+* **Improvements:** Updated all dependencies to latest versions
+* **Improvements:** Migrated tests from Mocha/Chai/Sinon to `node:test` + `node:assert/strict`
+* **Improvements:** Migrated from `nyc` to `c8` for code coverage
+* **Improvements:** Migrated to ESLint flat config with `@voxpelli/eslint-config` v23
+* **Improvements:** Added `knip` for dead code detection, `type-coverage` for type checking
+* **Improvements:** Updated CI to use reusable workflows from `voxpelli/ghatemplates`
+
 ## 0.9.0 (2020-08-20)
 
 * **Breaking change:** Now requires Node v12

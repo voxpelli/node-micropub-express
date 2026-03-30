@@ -1,10 +1,7 @@
 # Micropub Express
 
-[![Build Status](https://travis-ci.org/voxpelli/node-micropub-express.svg?branch=master)](https://travis-ci.org/voxpelli/node-micropub-express)
-[![Coverage Status](https://coveralls.io/repos/voxpelli/node-micropub-express/badge.svg)](https://coveralls.io/r/voxpelli/node-micropub-express)
-[![dependencies Status](https://david-dm.org/voxpelli/node-micropub-express/status.svg)](https://david-dm.org/voxpelli/node-micropub-express)
-[![Known Vulnerabilities](https://snyk.io/test/github/voxpelli/node-micropub-express/badge.svg?targetFile=package.json)](https://snyk.io/test/github/voxpelli/node-micropub-express?targetFile=package.json)
-[![js-semistandard-style](https://img.shields.io/badge/code%20style-semistandard-brightgreen.svg?style=flat)](https://github.com/Flet/semistandard)
+[![Node CI](https://github.com/voxpelli/node-micropub-express/actions/workflows/nodejs.yml/badge.svg)](https://github.com/voxpelli/node-micropub-express/actions/workflows/nodejs.yml)
+[![Linting](https://github.com/voxpelli/node-micropub-express/actions/workflows/lint.yml/badge.svg)](https://github.com/voxpelli/node-micropub-express/actions/workflows/lint.yml)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fvoxpelli%2Fnode-micropub-express?ref=badge_shield)
 
 Provides a Micropub route for Express 4.x
@@ -16,7 +13,7 @@ Node.js requirement is set in `package.json` (Use eg. [installed-check](https://
 ## Installation
 
 ```bash
-npm install micropub-express --save
+npm install micropub-express
 ```
 
 ## Current status
@@ -32,7 +29,7 @@ The rest of the CRUD-operations + other more complex operations are yet to be bu
 ## Usage
 
 ```javascript
-var micropub = require('micropub-express');
+import micropub from 'micropub-express';
 
 // Attach the micropub endpoint to "/micropub" or wherever else you want
 app.use('/micropub', micropub({
@@ -44,11 +41,9 @@ app.use('/micropub', micropub({
   },
 
   // And lastly: Do something with the created micropub document
-  handler: function (micropubDocument, req) {
-    // Do something with the micropubDocument and return a Promise to communicate status of the handling
-    return Promise.resolve().then(function () {
-      return { url: 'http://example.com/url/to/new/post' };
-    });
+  async handler (micropubDocument, req) {
+    // Do something with the micropubDocument and return an object with a url to communicate status
+    return { url: 'http://example.com/url/to/new/post' };
   }
 
 }));
@@ -57,13 +52,13 @@ app.use('/micropub', micropub({
 ## Advanced Usage
 
 ```javascript
-var express = require('express');
-var micropub = require('micropub-express');
+import express from 'express';
+import micropub from 'micropub-express';
 
-var app = express();
+const app = express();
 
 // Do some Express magic to support multiple Micropub endpoints in the same application
-app.param('targetsite', function (req, res, next, id) {
+app.param('targetsite', (req, res, next, id) => {
   // Resolve a token reference from the "targetsite" id and return 404 if you find no match
   if (id === 'example.com') {
     req.targetsite = {
@@ -80,21 +75,27 @@ app.use('/micropub/:targetsite', micropub({
   logger: logger,          // a logger object that uses the same API as the bunyan module
   userAgent: 'my-app/1.0', // a user-agent that will be prepended to the module's own user-agent to indicate
                            // to IndieAuth endpoints who it is that makes the verification requests
-  tokenReference: function (req) {
+  tokenReference (req) {
     // Find the token reference we added to the request object before and return it
     return req.targetsite;
   },
   // And lastly: Do something with the created micropub document
-  handler: function (micropubDocument, req) {
-    // Do something with the micropubDocument and return a Promise to communicate status of the handling
-    return Promise.resolve().then(function () {
-      return { url: 'http://example.com/url/to/new/post' };
-    });
+  async handler (micropubDocument, req) {
+    // Do something with the micropubDocument and return an object with a url to communicate status
+    return { url: 'http://example.com/url/to/new/post' };
   }
 }));
 
 // Start the Express server on a port, like port 3000!
 app.listen(3000);
+```
+
+## Core Module
+
+The framework-agnostic parsing and token validation logic is available as a separate export for building custom integrations (e.g., a Fastify plugin):
+
+```javascript
+import { processFormEncodedBody, processJsonEncodedBody } from 'micropub-express/core';
 ```
 
 ## Options
@@ -103,7 +104,7 @@ app.listen(3000);
 * **handler** – *required* – the function that will be called with the handled micropub document and the request object. It's this functions responsibility to actually act on the received data and do something with it. Should return a `Promise` resolving to an object with a `url` key containing the url of the created item to indicate success. If the `Promise` is rejected or the `url` key is missing or falsy in the resolved `Promise`, then a `400` error will be returned to indicate failure.
 * **userAgent** – *recommended* – a user-agent *string* like `your-app-name/1.2.3 (http://app.example.com/)` that gets prepended to the user-agent of `micropub-express` itself when verifying received tokens against an endpoint
 * **queryHandler** – *optional* – a function that will be called whenever a `?q=` query is made to the Micropub endpoint. It's this functions responsibility to execute the query and respond with the relevant data. Should return a `Promise` resolving to an object containing the query result. Keys on the object should _not_ include any `[]`, those will be added in the encoded result where relevant. If the `Promise` resolves to something falsy, then a `400` error will be returned to indicate that the query type is unsupported. If the `Promise` is rejected, then a `400` error will be returned to indicate failure.
-* **logger** – *optional* – a [bunyan](https://github.com/trentm/node-bunyan) compatible logger, like bunyan itself or some other module. Defaults to [bunyan-duckling](https://github.com/bloglovin/node-bunyan-duckling) which logs with `console.log()` and `console.error()`
+* **logger** – *optional* – a [bunyan](https://github.com/trentm/node-bunyan) compatible logger, like bunyan itself or some other module. Defaults to [bunyan-adaptor](https://github.com/voxpelli/node-bunyan-adaptor) which logs with `console.log()` and `console.error()`
 
 ## Format of `micropubDocument`
 
@@ -131,7 +132,7 @@ Full example:
     photo: [
       {
         filename: 'example.jpg',
-        buffer: new Buffer() // A Node.js buffer with the content of the file.
+        buffer: Buffer.alloc(0) // A Node.js buffer with the content of the file.
       }
     ]
   }

@@ -24,7 +24,8 @@
 - **HTTP testing**: `supertest`
 - **Coverage**: `c8`
 - **Linter**: ESLint 9 flat config via `@voxpelli/eslint-config`
-- **Type checking**: TypeScript via `@voxpelli/tsconfig/node20.json`
+- **Type checking**: TypeScript via `@voxpelli/tsconfig/node20.json` (strict, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`)
+- **Script runner**: `npm-run-all2` (not `npm-run-all`) — provides `run-s` (sequential) and `run-p` (parallel)
 
 ## Key Commands
 
@@ -48,16 +49,30 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 5. **Tests**: 45/45 passing
 6. **installed-check**: All deps properly declared (ignores eslint via `-i eslint`)
 
+## Editor & Formatting
+
+- **EditorConfig**: 2-space indent, LF line endings, UTF-8, trailing whitespace trimmed, final newline inserted
+- **No lockfile**: `.npmrc` sets `package-lock=false` — this is a library, not an app
+
 ## Code Conventions
 
 - **JSDoc for types** — no `.ts` files; use `/** @type {X} */` and `@param`/`@returns` in JSDoc blocks
 - **Typed locals for `req.body`** — Express types `body` as `any`; always extract into a typed local: `/** @type {ParsedMicropubStructure} */ const body = req.body;`
-- **Async IIFE pattern** — Express 4.x doesn't support async middleware; use `(async () => { ... })().catch(err => next(new Error('...', { cause: err })))` with eslint-disable comments
+- **Async IIFE pattern** — Express 4.x doesn't support async middleware; use `(async () => { ... })().catch(err => next(new Error('...', { cause: err })))` with eslint-disable comments for `no-floating-promises` and `promise/prefer-await-to-then`
 - **`Object.keys(x).length`** — Use this idiom for checking if an object is empty/non-empty (not `Object.getOwnPropertyNames`)
 - **Shared constants** — `mediaTypes`, `reservedProperties`, `requiredScope` are in `lib/core.js`; don't duplicate
-- **Trailing commas** — Always use trailing commas in multi-line objects/arrays (enforced by linter)
+- **Trailing commas** — Always use trailing commas in multi-line objects/arrays (enforced by linter via neostandard)
 - **`@ts-expect-error`** over `@ts-ignore` — Use with a descriptive comment for intentional type suppressions
 - **No `node:querystring`** — Deprecated; use `URLSearchParams` instead (see `test/helpers.js` for multi-value parsing)
+- **Unused variables** — Prefix with `_` (e.g., `_req`) to satisfy `no-unused-vars` rule
+
+## Test Patterns
+
+- **nock setup**: `nock.disableNetConnect()` in `before`, `nock.enableNetConnect('127.0.0.1')` to allow supertest
+- **nock teardown**: `nock.cleanAll()` in `afterEach`, `nock.enableNetConnect()` in `after`
+- **supertest**: Use `supertest.agent(app)` for persistent agent, then `agent.post('/micropub').send(...)`
+- **Mocking**: `mock.fn()` from `node:test` mock module; `mock.restoreAll()` in `afterEach`
+- **Shared helpers**: `parseQueryString` in `test/helpers.js` — handles multi-value params via `URLSearchParams`
 
 ## Dependency Notes
 
@@ -65,6 +80,8 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 - **`multer@1.4.4-lts.1`** — Community LTS fork; the `MulterFile` typedef in core.js extends it with `{ truncated?: boolean }`
 - **`@types/express@^4`** — Must match `express@^4` runtime; do NOT upgrade to `@types/express@^5`
 - **`createRequire` for package.json** — Idiomatic ESM approach for JSON imports; runs once at startup
+- **`type-fest`** — Used for `JsonValue` type in parsed Micropub structures
+- **`bunyan-adaptor`** — Provides `BunyanLite` interface for lightweight logging; lazy-initialized singleton in `index.js`
 
 ## CI / Workflows
 
@@ -80,6 +97,22 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 
 ## Package Publishing
 
-- **`"files"` in package.json** controls what's published (replaces deleted `.npmignore`)
-- **Declaration files** are generated via `npm run build` (`tsc -p declaration.tsconfig.json`)
+- **`"files"` in package.json** controls what's published: `index.js`, `index.d.ts`, `index.d.ts.map`, `lib/**/*.js`, `lib/**/*.d.ts`, `lib/**/*.d.ts.map`
+- **Declaration files** are generated via `npm run build` (`tsc -p declaration.tsconfig.json`); `npm run clean` removes stale `.d.ts` files
 - **Exports map**: `"."` → `./index.js`, `"./core"` → `./lib/core.js`
+- **Build pipeline**: `clean` → `build:1-declaration` → `prepublishOnly` triggers full build before publish
+
+## ESLint Config Details
+
+- Based on `@voxpelli/eslint-config` v23 which uses `neostandard` as its foundation
+- Config in `eslint.config.js` passes `{ noMocha: true }` since tests use `node:test`
+- Existing `eslint-disable` comments in `index.js` are intentional for the async IIFE pattern:
+  - `eslint-disable-next-line no-floating-promises` — the IIFE `.catch()` handles errors
+  - `eslint-disable-next-line promise/prefer-await-to-then` — `.catch()` is needed for Express error forwarding
+
+## Type Coverage Notes
+
+- `--ignore-nested` flag means nested generics like `Promise<any>` count as typed (only the outer type matters)
+- `--strict` mode counts `any` as untyped
+- Test files excluded via `--ignore-files 'test/**/*'`
+- Current threshold: 90%

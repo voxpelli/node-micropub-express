@@ -11,6 +11,7 @@ import createBunyanAdaptor from 'bunyan-adaptor';
 
 import {
   ensureArrayAndCloneIt,
+  mediaTypes,
   processFormEncodedBody,
   processJsonEncodedBody,
   processFiles,
@@ -39,14 +40,13 @@ const pkg = require('./package.json');
 
 const defaultUserAgent = pkg.name + '/' + pkg.version + (pkg.homepage ? ' (' + pkg.homepage + ')' : '');
 
-const getBunyanAdaptor = (function () {
-  /** @type {BunyanLite} */
-  let bunyanAdaptor;
-  return () => {
-    if (!bunyanAdaptor) { bunyanAdaptor = createBunyanAdaptor(); }
-    return bunyanAdaptor;
-  };
-}());
+/** @type {BunyanLite | undefined} */
+let _bunyanAdaptor;
+/** @returns {BunyanLite} */
+function getBunyanAdaptor () {
+  if (!_bunyanAdaptor) { _bunyanAdaptor = createBunyanAdaptor(); }
+  return _bunyanAdaptor;
+}
 
 /**
  * @param {Response} res
@@ -111,7 +111,7 @@ function micropubExpress (options) {
   const storage = multer.memoryStorage();
   const upload = multer({ storage });
 
-  router.use(upload.fields(['video', 'photo', 'audio', 'video[]', 'photo[]', 'audio[]'].map(type => ({ name: type }))));
+  router.use(upload.fields(mediaTypes.flatMap(type => [{ name: type }, { name: type + '[]' }])));
 
   // Ensure the needed parts are there
   router.use(
@@ -129,11 +129,11 @@ function micropubExpress (options) {
         req.body = {};
       }
 
-      if (req.body && Object.keys(req.body).length > 0) {
+      if (Object.keys(req.body).length > 0) {
         req.body = req.is('json') ? processJsonEncodedBody(req.body) : processFormEncodedBody(req.body);
       }
 
-      if (req.files && !Array.isArray(req.files) && Object.getOwnPropertyNames(req.files)[0]) {
+      if (req.files && !Array.isArray(req.files) && Object.keys(req.files).length > 0) {
         req.body = processFiles(req.body, req.files, logger);
       }
 
@@ -153,7 +153,7 @@ function micropubExpress (options) {
             )
       );
 
-      if (token === undefined || !token) {
+      if (!token) {
         logger.debug('Got a request with a missing token');
         return badRequest(res, 'Missing "Authorization" header or body parameter.', 401);
       }
@@ -167,7 +167,6 @@ function micropubExpress (options) {
         const valid = await matchAnyTokenReference(token, ensureArrayAndCloneIt(resolvedTokenReference), userAgent, logger);
 
         if (valid === true) { return next(); }
-        if (valid && !(valid instanceof Error)) { return next(); }
 
         if (valid instanceof TokenScopeError) {
           return res.status(401).json({

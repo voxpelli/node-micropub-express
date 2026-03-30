@@ -9,25 +9,9 @@ import createBunyanAdaptor from 'bunyan-adaptor';
 import express from 'express';
 
 import micropub from '../../index.js';
+import { parseQueryString } from '../helpers.js';
 
 /** @typedef {import('nock').Scope} NockScope */
-
-/**
- * @param {string} str
- * @returns {Record<string, string | string[]>}
- */
-function parseQueryString (str) {
-  const params = new URLSearchParams(str);
-  /** @type {Record<string, string | string[]>} */
-  const result = {};
-
-  for (const key of new Set(params.keys())) {
-    const values = params.getAll(key);
-    result[key] = values.length === 1 ? /** @type {string} */ (values[0]) : values;
-  }
-
-  return result;
-}
 
 /**
  * @param {number} code
@@ -72,14 +56,12 @@ describe('Micropub API', function () {
   const customLogger = createBunyanAdaptor({ verbose: function () {} });
 
   /**
-   * @param {undefined|false} [_mock]
-   * @param {undefined|false} [_done]
    * @param {number} [code]
    * @param {string|Record<string,any>|((req: import('supertest').Test) => import('supertest').Test)} [content]
    * @param {*} [response]
    * @returns {import('supertest').Test}
    */
-  function doRequest (_mock, _done, code, content, response) {
+  function doRequest (code, content, response) {
     let req = agent
       .post('/micropub')
       .set('Authorization', 'Bearer ' + token);
@@ -106,7 +88,7 @@ describe('Micropub API', function () {
    * @returns {Promise<void>}
    */
   async function asyncRequest (nockMock, code, content, response) {
-    const req = doRequest(undefined, undefined, code, content, response);
+    const req = doRequest(code, content, response);
     await req;
     if (nockMock) { nockMock.done(); }
   }
@@ -351,7 +333,7 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on like-of', async function () {
-      await doRequest(false, false, 201, {
+      await doRequest(201, {
         h: 'entry',
         'like-of': 'http://example.com/liked/post',
       })
@@ -371,7 +353,7 @@ describe('Micropub API', function () {
     });
 
     it('should handle totally random properties', async function () {
-      await doRequest(false, false, 201, {
+      await doRequest(201, {
         h: 'entry',
         foo: '123',
       })
@@ -391,7 +373,7 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on HTML content', async function () {
-      await doRequest(false, false, 201, {
+      await doRequest(201, {
         h: 'entry',
         'content[html]': '<strong>Hi</strong>',
       })
@@ -413,7 +395,7 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on JSON payload', async function () {
-      await doRequest(undefined, undefined, undefined, function (req) {
+      await doRequest(undefined, function (req) {
         return req.type('json').send({
           type: ['h-entry'],
           properties: {
@@ -437,7 +419,7 @@ describe('Micropub API', function () {
     });
 
     it('should call handle on multipart payload', async function () {
-      await doRequest(undefined, undefined, undefined, function (req) {
+      await doRequest(undefined, function (req) {
         return req
           .field('h', 'entry')
           .field('content', 'hello world');
@@ -458,7 +440,7 @@ describe('Micropub API', function () {
     });
 
     it('should transform mp-* properties', async function () {
-      await doRequest(false, false, 201, {
+      await doRequest(201, {
         h: 'entry',
         'mp-foo': 'bar',
         'like-of': 'http://example.com/liked/post',
@@ -482,7 +464,7 @@ describe('Micropub API', function () {
     });
 
     it('should transform mp-* properties in JSON payload', async function () {
-      await doRequest(undefined, undefined, undefined, function (req) {
+      await doRequest(undefined, function (req) {
         return req.type('json').send({
           type: ['h-entry'],
           'mp-foo': 'bar',

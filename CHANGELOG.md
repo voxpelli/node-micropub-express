@@ -3,7 +3,7 @@
 * **Breaking change:** Now requires Node.js ^20.19.0 || ^22.13.0 || >=24
 * **Breaking change:** Converted to ESM (`"type": "module"`) — use `import` instead of `require`
 * **Breaking change:** Replaced `node-fetch` with native `fetch()` (Node 20+)
-* **Breaking change:** Replaced `verror` with native `Error({ cause })` + `pony-cause`
+* **Breaking change:** Replaced `verror` with native `Error({ cause })`
 * **Improvements:** Extracted core logic into `lib/` for framework-agnostic reuse (Fastify preparation)
 * **Improvements:** Added `micropub-express/core` export with parsing and token utilities
 * **Improvements:** Updated all dependencies to latest versions

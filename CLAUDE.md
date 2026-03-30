@@ -6,12 +6,41 @@
 
 ## Architecture
 
-- **`index.js`** — Express router setup, middleware chain (body parsing, token validation, request handling)
+- **`index.js`** — Express router setup, middleware chain (body parsing, token validation, request handling). Re-exports core parsing functions as static methods and named exports
 - **`lib/core.js`** — Framework-agnostic utilities: body parsing (`processFormEncodedBody`, `processJsonEncodedBody`), file processing, query string encoding, shared types/constants
-- **`lib/token.js`** — Token validation against IndieAuth endpoints (`matchAnyTokenReference`, `validateToken`)
+- **`lib/token.js`** — Token validation against IndieAuth endpoints (`matchAnyTokenReference`, `validateToken`). Groups references by endpoint to minimize token endpoint calls
 - **`test/helpers.js`** — Shared test utilities (`parseQueryString`)
 - **`test/micropub.spec.js`** — Unit tests for parsing functions
 - **`test/integration/micropub.spec.js`** — Integration tests with Express app, nock-mocked token endpoints
+
+## Middleware Options (`MicropubExpressOptions`)
+
+- **`handler`** `(data, req) => Promise<{url: string}|undefined>` — Required. Called on successful POST. Must return `{ url }` for 201 Created; falsy/missing `url` returns 400
+- **`tokenReference`** — Required. Can be:
+  - `{ me: string, endpoint: string }` — single IndieAuth reference
+  - `TokenReference[]` — multiple references (all endpoints checked, first success wins)
+  - `(req?) => Promise<TokenReference|TokenReference[]>` — async function for dynamic resolution
+- **`queryHandler`** `(q, req) => Promise<Record<string,any>|false>` — Optional. Handles GET queries (e.g., `syndicate-to`). Return falsy for unsupported queries. `config` query returns `{}` by default even without a handler
+- **`userAgent`** `string` — Optional. Prepended to the default User-Agent when calling token endpoints
+- **`logger`** `BunyanLite` — Optional. Defaults to lazy-initialized `bunyan-adaptor` singleton
+
+## Token Validation Flow
+
+1. Token extracted from `Authorization: Bearer {token}` header, falling back to body `access_token` field
+2. Token sent to IndieAuth endpoint(s) with Bearer auth; response parsed as form-encoded (`me`, `scope`)
+3. `me` value normalized (trailing slash) before comparison against reference URLs
+4. Scope checked for `create` or `post` (both accepted); supports space-separated AND comma-separated scopes
+5. **Error priority**: `true` (success) > `TokenScopeError` (401, insufficient scope) > `TokenError` (403, invalid token) > `false`
+
+## Response Codes
+
+- **201 Created** — Successful POST, `Location` header set to handler's returned URL
+- **200 OK** — GET without `q` param (auth check only), or query response (JSON by default, form-encoded if Accept header requests it)
+- **400 Bad Request** — Missing `h` value, missing properties, invalid `q` format
+- **401 Unauthorized** — Missing auth token or insufficient scope (includes `scope` field in response)
+- **403 Forbidden** — Invalid token or `me` mismatch
+- **405 Method Not Allowed** — Query (`q` param) sent via POST instead of GET
+- **501 Not Implemented** — Update/edit/delete operations (`mp-action`)
 
 ## Tech Stack
 
@@ -54,11 +83,19 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 - **EditorConfig**: 2-space indent, LF line endings, UTF-8, trailing whitespace trimmed, final newline inserted
 - **No lockfile**: `.npmrc` sets `package-lock=false` — this is a library, not an app
 
+## Request Format Handling
+
+- **Form-encoded** — `h` field → `type: ['h-entry']`; array notation `category[]` → array; object notation `content[html]` → nested object; `mp-*` keys stripped to `mp` object
+- **JSON** — `properties.url` extracted to top-level `url`; `mp-*` keys → `mp` object with array values
+- **Multipart** — File fields: `photo`, `photo[]`, `video`, `video[]`, `audio`, `audio[]` via multer memory storage; truncated files logged and excluded; result in `body.files.{type}` as `{ filename, buffer }[]`
+- **Reserved properties** (`access_token`, `q`, `url`, `update`, `add`, `delete`) are placed at top level of `ParsedMicropubStructure`, NOT in `properties`
+
 ## Code Conventions
 
 - **JSDoc for types** — no `.ts` files; use `/** @type {X} */` and `@param`/`@returns` in JSDoc blocks
 - **Typed locals for `req.body`** — Express types `body` as `any`; always extract into a typed local: `/** @type {ParsedMicropubStructure} */ const body = req.body;`
 - **Async IIFE pattern** — Express 4.x doesn't support async middleware; use `(async () => { ... })().catch(err => next(new Error('...', { cause: err })))` with eslint-disable comments for `no-floating-promises` and `promise/prefer-await-to-then`
+- **Router options** — Express Router uses `caseSensitive: true` and `mergeParams: true`
 - **`Object.keys(x).length`** — Use this idiom for checking if an object is empty/non-empty (not `Object.getOwnPropertyNames`)
 - **Shared constants** — `mediaTypes`, `reservedProperties`, `requiredScope` are in `lib/core.js`; don't duplicate
 - **Trailing commas** — Always use trailing commas in multi-line objects/arrays (enforced by linter via neostandard)
@@ -85,9 +122,10 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 
 ## CI / Workflows
 
-- **`.github/workflows/nodejs.yml`** — Tests on Node 20, 22, 24 via `voxpelli/ghatemplates`
-- **`.github/workflows/lint.yml`** — Linting via `voxpelli/ghatemplates`
-- **`.github/workflows/codeql-analysis.yml`** — CodeQL security scanning
+- **`.github/workflows/nodejs.yml`** — Tests on Node 20, 22, 24 via `voxpelli/ghatemplates/.github/workflows/nodejs.yml@main`
+- **`.github/workflows/lint.yml`** — Linting via `voxpelli/ghatemplates/.github/workflows/lint.yml@main`
+- **`.github/workflows/codeql-analysis.yml`** — CodeQL security scanning (weekly, Thursdays 00:00 UTC)
+- **Renovate**: Dependency updates via shared config `github>voxpelli/renovate-config`
 
 ## Versioning and Releases
 
@@ -101,6 +139,7 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 - **Declaration files** are generated via `npm run build` (`tsc -p declaration.tsconfig.json`); `npm run clean` removes stale `.d.ts` files
 - **Exports map**: `"."` → `./index.js`, `"./core"` → `./lib/core.js`
 - **Build pipeline**: `clean` → `build:1-declaration` → `prepublishOnly` triggers full build before publish
+- **Generated `.d.ts` files are gitignored** — regenerated during build; `npm run clean` removes stale ones
 
 ## ESLint Config Details
 

@@ -4,6 +4,28 @@
 
 `micropub-express` is an Express 4.x middleware implementing the [Micropub](https://www.w3.org/TR/micropub/) protocol. It handles authentication via IndieAuth token endpoints, parses form-encoded/JSON/multipart Micropub requests, and delegates to user-provided handler functions.
 
+## Key Commands
+
+```bash
+npm test              # Full pipeline: clean, check (lint + tsc + knip + type-coverage), test
+npm run check         # Lint + type check + knip + type-coverage (no tests)
+npm run test:node     # Just tests with coverage: c8 node --test 'test/**/*.spec.js'
+npm run build         # Generate .d.ts declaration files
+npx eslint --report-unused-disable-directives .   # Lint only
+npx tsc --noEmit      # Type check only
+npx knip              # Dead code detection
+npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # Type coverage
+```
+
+## Quality Gates (all must pass for `npm test` to succeed)
+
+1. **ESLint**: 0 errors, 0 warnings (warnings are errors in CI)
+2. **TypeScript**: `tsc --noEmit` — 0 errors
+3. **Knip**: No unused exports/dependencies (zero-config; derives entry points from package.json `exports` map)
+4. **Type coverage**: >= 90% strict coverage (excluding test files)
+5. **Tests**: 45/45 passing
+6. **installed-check**: Validates dependency engine/peer ranges are compatible with project's declared ranges; eslint ignored via `-i eslint` (its engine range is stricter than the project's Node.js range)
+
 ## Architecture
 
 - **`index.js`** — Express router setup, middleware chain (body parsing, token validation, request handling). Re-exports core parsing functions as static methods and named exports
@@ -12,6 +34,20 @@
 - **`test/helpers.js`** — Shared test utilities (`parseQueryString`)
 - **`test/micropub.spec.js`** — Unit tests for parsing functions
 - **`test/integration/micropub.spec.js`** — Integration tests with Express app, nock-mocked token endpoints
+
+## Tech Stack
+
+- **Runtime**: Node.js ^20.19.0 || ^22.13.0 || >=24
+- **Module system**: ESM (`"type": "module"`)
+- **Types**: JSDoc annotations checked by TypeScript (`@ts-check`, no compiled TS)
+- **Test runner**: `node:test` + `node:assert/strict` (not Mocha/Chai)
+- **Mocking**: `node:test` `mock` module (not Sinon)
+- **HTTP mocking**: `nock`
+- **HTTP testing**: `supertest`
+- **Coverage**: `c8`
+- **Linter**: ESLint 9 flat config via `@voxpelli/eslint-config` v23 (neostandard-based)
+- **Type checking**: TypeScript via `@voxpelli/tsconfig/node20.json` — target `es2022`, lib `es2023`
+- **Script runner**: `npm-run-all2` (not `npm-run-all`) — provides `run-s` (sequential) and `run-p` (parallel)
 
 ## Middleware Options (`MicropubExpressOptions`)
 
@@ -41,47 +77,6 @@
 - **403 Forbidden** — Invalid token or `me` mismatch
 - **405 Method Not Allowed** — Query (`q` param) sent via POST instead of GET
 - **501 Not Implemented** — Update/edit/delete operations (`mp-action`)
-
-## Tech Stack
-
-- **Runtime**: Node.js ^20.19.0 || ^22.13.0 || >=24
-- **Module system**: ESM (`"type": "module"`)
-- **Types**: JSDoc annotations checked by TypeScript (`@ts-check`, no compiled TS)
-- **Test runner**: `node:test` + `node:assert/strict` (not Mocha/Chai)
-- **Mocking**: `node:test` `mock` module (not Sinon)
-- **HTTP mocking**: `nock`
-- **HTTP testing**: `supertest`
-- **Coverage**: `c8`
-- **Linter**: ESLint 9 flat config via `@voxpelli/eslint-config`
-- **Type checking**: TypeScript via `@voxpelli/tsconfig/node20.json` — strict mode with `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature` (must use bracket notation for index signatures), `skipLibCheck: false`; target `es2022`, lib `es2023`
-- **Script runner**: `npm-run-all2` (not `npm-run-all`) — provides `run-s` (sequential) and `run-p` (parallel)
-
-## Key Commands
-
-```bash
-npm test              # Full pipeline: clean, check (lint + tsc + knip + type-coverage), test
-npm run check         # Lint + type check + knip + type-coverage (no tests)
-npm run test:node     # Just tests with coverage: c8 node --test 'test/**/*.spec.js'
-npm run build         # Generate .d.ts declaration files
-npx eslint --report-unused-disable-directives .   # Lint only
-npx tsc --noEmit      # Type check only
-npx knip              # Dead code detection
-npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # Type coverage
-```
-
-## Quality Gates (all must pass for `npm test` to succeed)
-
-1. **ESLint**: 0 errors, 0 warnings (warnings are errors in CI)
-2. **TypeScript**: `tsc --noEmit` — 0 errors
-3. **Knip**: No unused exports/dependencies (zero-config; derives entry points from package.json `exports` map)
-4. **Type coverage**: >= 90% strict coverage (excluding test files)
-5. **Tests**: 45/45 passing
-6. **installed-check**: Validates dependency engine/peer ranges are compatible with project's declared ranges; eslint ignored via `-i eslint` (its engine range is stricter than the project's Node.js range)
-
-## Editor & Formatting
-
-- **EditorConfig**: 2-space indent, LF line endings, UTF-8, trailing whitespace trimmed, final newline inserted
-- **No lockfile**: `.npmrc` sets `package-lock=false` — this is a library, not an app
 
 ## Request Format Handling
 
@@ -120,6 +115,29 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 - **`type-fest`** — Used for `JsonValue` type in parsed Micropub structures
 - **`bunyan-adaptor`** — Provides `BunyanLite` interface for lightweight logging; lazy-initialized singleton in `index.js`
 
+## ESLint Config Details
+
+- Based on `@voxpelli/eslint-config` v23 which uses `neostandard` as its foundation
+- **Active plugins**: `eslint-plugin-jsdoc`, `eslint-plugin-n` (Node.js), `eslint-plugin-promise`, `eslint-plugin-security`, `eslint-plugin-unicorn`
+- **neostandard quirks**: `dot-notation` is disabled (clashes with `noPropertyAccessFromIndexSignature`); trailing commas are allowed (not errored)
+- **unicorn convention**: Prefers `err` over `error` in catch blocks
+- Config in `eslint.config.js` passes `{ noMocha: true }` since tests use `node:test`
+- Existing `eslint-disable` comments in `index.js` are intentional for the async IIFE pattern:
+  - `eslint-disable-next-line no-floating-promises` — the IIFE `.catch()` handles errors
+  - `eslint-disable-next-line promise/prefer-await-to-then` — `.catch()` is needed for Express error forwarding
+
+## TypeScript Config
+
+- Extends `@voxpelli/tsconfig/node20.json`: `strict: true`, `allowJs: true`, `checkJs: true`
+- **Key strict flags**: `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature` (must use bracket notation for index signatures), `noUnusedLocals`, `noUnusedParameters`
+- **`skipLibCheck: false`** — checks all `.d.ts` files (slower but catches more errors)
+- **Type coverage**: `--strict` counts `any` and type assertions (`as string`, `!`) as uncovered; only `as const` and `as unknown` are exempt. `--ignore-nested` means `Promise<any>` counts as typed. Threshold: 90%, test files excluded
+
+## Editor & Formatting
+
+- **EditorConfig**: 2-space indent, LF line endings, UTF-8, trailing whitespace trimmed, final newline inserted
+- **No lockfile**: `.npmrc` sets `package-lock=false` — this is a library, not an app
+
 ## CI / Workflows
 
 - **`.github/workflows/nodejs.yml`** — Tests on Node 20, 22, 24 via `voxpelli/ghatemplates/.github/workflows/nodejs.yml@main`; runs `npm run test-ci` (tests only, no static analysis)
@@ -141,21 +159,3 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 - **Exports map**: `"."` → `./index.js`, `"./core"` → `./lib/core.js`
 - **Build pipeline**: `clean` → `build:1-declaration` → `prepublishOnly` triggers full build before publish
 - **Generated `.d.ts` files are gitignored** — regenerated during build; `npm run clean` removes stale ones
-
-## ESLint Config Details
-
-- Based on `@voxpelli/eslint-config` v23 which uses `neostandard` as its foundation
-- **Active plugins**: `eslint-plugin-jsdoc`, `eslint-plugin-n` (Node.js), `eslint-plugin-promise`, `eslint-plugin-security`, `eslint-plugin-unicorn`
-- **neostandard quirks**: `dot-notation` is disabled (clashes with `noPropertyAccessFromIndexSignature`); trailing commas are allowed (not errored)
-- **unicorn convention**: Prefers `err` over `error` in catch blocks
-- Config in `eslint.config.js` passes `{ noMocha: true }` since tests use `node:test`
-- Existing `eslint-disable` comments in `index.js` are intentional for the async IIFE pattern:
-  - `eslint-disable-next-line no-floating-promises` — the IIFE `.catch()` handles errors
-  - `eslint-disable-next-line promise/prefer-await-to-then` — `.catch()` is needed for Express error forwarding
-
-## Type Coverage Notes
-
-- `--ignore-nested` flag means nested generics like `Promise<any>` count as typed (only the outer type matters)
-- `--strict` mode counts `any` as untyped; also counts type assertions (`as string`, `!`) as uncovered — only `as const` and `as unknown` are exempt
-- Test files excluded via `--ignore-files 'test/**/*'`
-- Current threshold: 90%

@@ -53,7 +53,7 @@
 - **HTTP testing**: `supertest`
 - **Coverage**: `c8`
 - **Linter**: ESLint 9 flat config via `@voxpelli/eslint-config`
-- **Type checking**: TypeScript via `@voxpelli/tsconfig/node20.json` (strict, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`)
+- **Type checking**: TypeScript via `@voxpelli/tsconfig/node20.json` — strict mode with `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noPropertyAccessFromIndexSignature` (must use bracket notation for index signatures), `skipLibCheck: false`; target `es2022`, lib `es2023`
 - **Script runner**: `npm-run-all2` (not `npm-run-all`) — provides `run-s` (sequential) and `run-p` (parallel)
 
 ## Key Commands
@@ -73,10 +73,10 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 
 1. **ESLint**: 0 errors, 0 warnings (warnings are errors in CI)
 2. **TypeScript**: `tsc --noEmit` — 0 errors
-3. **Knip**: No unused exports/dependencies
+3. **Knip**: No unused exports/dependencies (zero-config; derives entry points from package.json `exports` map)
 4. **Type coverage**: >= 90% strict coverage (excluding test files)
 5. **Tests**: 45/45 passing
-6. **installed-check**: All deps properly declared (ignores eslint via `-i eslint`)
+6. **installed-check**: Validates dependency engine/peer ranges are compatible with project's declared ranges; eslint ignored via `-i eslint` (its engine range is stricter than the project's Node.js range)
 
 ## Editor & Formatting
 
@@ -122,10 +122,11 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 
 ## CI / Workflows
 
-- **`.github/workflows/nodejs.yml`** — Tests on Node 20, 22, 24 via `voxpelli/ghatemplates/.github/workflows/nodejs.yml@main`
-- **`.github/workflows/lint.yml`** — Linting via `voxpelli/ghatemplates/.github/workflows/lint.yml@main`
+- **`.github/workflows/nodejs.yml`** — Tests on Node 20, 22, 24 via `voxpelli/ghatemplates/.github/workflows/nodejs.yml@main`; runs `npm run test-ci` (tests only, no static analysis)
+- **`.github/workflows/lint.yml`** — Runs `npm run check` (all static analysis: lint + tsc + knip + type-coverage + installed-check) via `voxpelli/ghatemplates/.github/workflows/lint.yml@main`
 - **`.github/workflows/codeql-analysis.yml`** — CodeQL security scanning (weekly, Thursdays 00:00 UTC)
-- **Renovate**: Dependency updates via shared config `github>voxpelli/renovate-config`
+- **CI split**: lint.yml runs static analysis once; nodejs.yml runs tests across the Node version matrix. `test-ci` deliberately skips `clean` and `check` since those run separately
+- **Renovate**: Dependency updates via shared config `github>voxpelli/renovate-config` — automerge disabled, patch+minor combined, major separate, deps grouped by category (types, test tools, lint tools)
 
 ## Versioning and Releases
 
@@ -144,6 +145,9 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 ## ESLint Config Details
 
 - Based on `@voxpelli/eslint-config` v23 which uses `neostandard` as its foundation
+- **Active plugins**: `eslint-plugin-jsdoc`, `eslint-plugin-n` (Node.js), `eslint-plugin-promise`, `eslint-plugin-security`, `eslint-plugin-unicorn`
+- **neostandard quirks**: `dot-notation` is disabled (clashes with `noPropertyAccessFromIndexSignature`); trailing commas are allowed (not errored)
+- **unicorn convention**: Prefers `err` over `error` in catch blocks
 - Config in `eslint.config.js` passes `{ noMocha: true }` since tests use `node:test`
 - Existing `eslint-disable` comments in `index.js` are intentional for the async IIFE pattern:
   - `eslint-disable-next-line no-floating-promises` — the IIFE `.catch()` handles errors
@@ -152,6 +156,6 @@ npx type-coverage --detail --strict --at-least 90 --ignore-files 'test/**/*'  # 
 ## Type Coverage Notes
 
 - `--ignore-nested` flag means nested generics like `Promise<any>` count as typed (only the outer type matters)
-- `--strict` mode counts `any` as untyped
+- `--strict` mode counts `any` as untyped; also counts type assertions (`as string`, `!`) as uncovered — only `as const` and `as unknown` are exempt
 - Test files excluded via `--ignore-files 'test/**/*'`
 - Current threshold: 90%
